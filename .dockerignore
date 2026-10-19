@@ -1,0 +1,14 @@
+.git
+.github
+.env
+.env.*
+*.log
+node_modules
+tests
+coverage
+dist
+private
+secrets
+README.md
+# The Dockerfile requires index.html, styles.css, logo PNG, src/ and api/.
+# Do not ignore the frontend assets or source modules.

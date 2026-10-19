@@ -1,0 +1,64 @@
+name: Publicar portal (frontend)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: costalog-faturamento-pages
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Validar JavaScript e testes de segurança
+        run: |
+          node --check src/app.js
+          node --check src/dss-mapping.mjs
+          node --check src/operational.mjs
+          node --check src/reporting.mjs
+          node --check src/advanced-ui.mjs
+          node --check src/visual-dashboard.mjs
+          node --check src/access-ui.mjs
+          node --check src/admin-users.mjs
+          node --check src/site-config.mjs
+          node --check src/intelligence.mjs
+          node --check src/intelligence-ui.mjs
+          node --check src/financial-ui.mjs
+          node --check api/render-bootstrap.mjs
+          node --check api/dss-periods.mjs
+          node --check api/period-store.mjs
+          node --check api/mariadb-store.mjs
+          node --check api/server.mjs
+          node --check api/auth.mjs
+          node --check api/access.mjs
+          node --check api/users.mjs
+          node --test tests/finance*.test.mjs
+  deploy:
+    needs: verify
+    environment:
+      name: github-pages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Preparar arquivos públicos
+        run: |
+          mkdir -p public_site/src
+          cp index.html styles.css logo-costalog-sem-fundo-1024x876.png public_site/
+          cp src/app.js src/dss-mapping.mjs src/operational.mjs src/reporting.mjs src/advanced-ui.mjs src/visual-dashboard.mjs src/access-ui.mjs src/admin-users.mjs src/site-config.mjs src/intelligence.mjs src/intelligence-ui.mjs src/financial-ui.mjs public_site/src/
+          touch public_site/.nojekyll
+      - name: Enviar frontend
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public_site
+      - name: Implantar
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+test('Login mostra somente as seções financeiras e recusa perfil operacional',async()=>{
+ const events={},root={innerHTML:'',addEventListener(k,f){events[k]=f;}},storage=new Map();
+ globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ globalThis.window={location:{protocol:'https:',origin:'https://exemplo.github.io',hostname:'exemplo.github.io'}};
+ globalThis.alert=()=>{};globalThis.confirm=()=>true;
+ globalThis.document={getElementById:id=>id==='app'?root:id==='loginUser'?{value:'teste'}:id==='loginPassword'?{value:'senha'}:null,addEventListener(){},visibilityState:'visible'};
+ let role='operacional';
+ globalThis.fetch=async url=>({ok:true,status:200,async json(){return {token:'token-teste',user:{username:'teste',role,displayName:'Teste'},permissions:{financeiro:role!=='operacional',admin:role==='administrador',operacional:true}};}});
+ await import('../src/app.js?finance-test=1');
+ assert(root.innerHTML.includes('Acesso financeiro restrito'));
+ const action=type=>events.click({target:{closest:q=>q==='[data-action]'?{dataset:{action:type}}:null}});
+ const login=async()=>{action('connect');events.submit({target:{id:'loginForm'},preventDefault(){}});await new Promise(r=>setTimeout(r,20));};
+ await login();
+ assert(root.innerHTML.includes('Acesso financeiro restrito'));
+ assert(!root.innerHTML.includes('data-nav="faturamento"'));
+ action('logout');role='financeiro';await login();
+ assert(root.innerHTML.includes('data-nav="faturamento"'));
+ assert(root.innerHTML.includes('data-nav="clientes"'));
+ for(const v of ['viagens','veiculos','motoristas','rotas','mdfes','administracao'])assert(!root.innerHTML.includes('data-nav="'+v+'"'));
+ assert(root.innerHTML.includes('RESUMO FINANCEIRO'));
+});
