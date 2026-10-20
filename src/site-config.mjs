@@ -4,7 +4,8 @@
  * export const API_BASE_URL = 'https://api.seu-dominio-corporativo.com.br';
  * Até o servidor estar implantado, mantenha vazio para demonstração isolada.
  */
-export const API_BASE_URL = 'https://viagens-pf.onrender.com';
+// Site público sem login: não tentar buscar dados DSS protegidos diretamente.
+export const API_BASE_URL = '';
 
 export function resolvePortalApi(location, configured=API_BASE_URL) {
   const host=String(location?.hostname||'').toLowerCase();

@@ -51,7 +51,9 @@ demo.pedidos=demo.ctes.map(p=>({...p,pedidoNumero:'PF-'+p.numero,cteNumero:p.num
 /* GitHub Pages = APENAS DEMONSTRAÇÃO, SEM AUTENTICAÇÃO REAL.
    Os dados reais DSS nunca devem ser servidos com a autenticação local do navegador. */
 const portalSettings=resolvePortalApi(window.location);
-const PUBLIC_DEMO=portalSettings.demoOnly;
+// Portal financeiro público: acesso direto, sem sessão ou senha.
+// Nunca usar credenciais DSS no GitHub Pages ou consultar backend protegido sem autorização.
+const PUBLIC_DEMO=true;
 const DEMO_USERS_KEY='costalog_demo_users_v1';
 const TEMP_ADMIN_SALT='0586030c9088763dba9e1cde008cce5a';
 const TEMP_ADMIN_HASH='977b36fdad10f371180e01878f3d4331ae80c73e7b422eaeabb058ac48e65bdd';
@@ -128,12 +130,12 @@ async function demoChangeOwnPassword(currentPassword,newPassword){
 const state = {
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
- apiUrl:portalSettings.apiUrl,token:'',importCount:0,
+ apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',
  customer:'',vehicle:'',serviceType:'',sortKey:'',sortDir:'desc',alertPriority:'todos',
  hiddenColumns:readPrefs('costalog_visible_columns',{}),presets:readPrefs('costalog_filter_presets',{}),
- demoOnly:PUBLIC_DEMO,reportSelected:'pedidos',reportMulti:false,autoRefresh:0,lastSync:null,prevDataset:null,lateDays:2,apiDiagnostics:null,adminUsers:[],adminUsersLoading:false,adminUsersError:'',adminResetUser:'',role:'operacional',user:null,permissions:{operacional:true,financeiro:false,admin:false}
+ demoOnly:PUBLIC_DEMO,reportSelected:'pedidos',reportMulti:false,autoRefresh:0,lastSync:null,prevDataset:null,lateDays:2,apiDiagnostics:null,adminUsers:[],adminUsersLoading:false,adminUsersError:'',adminResetUser:'',role:'financeiro',user:null,permissions:{operacional:false,financeiro:true,admin:false}
 };
 const icons={
  home:'<path d="m3 10 9-7 9 7v10H3z"/><path d="M9 20v-7h6v7"/>',
@@ -225,17 +227,15 @@ function render(){
  root.innerHTML='<div class="layout v-app"><main class="main v-main">'+
  '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="./logo-costalog-sem-fundo-1024x876.png" alt="Logotipo COSTALOG"><div><b>COSTALOG</b><small>A LOGÍSTICA IDEAL</small></div><i></i><strong>GESTÃO FINANCEIRA & FATURAMENTO</strong></div>'+
  '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'?'connected':'')+'">'+(state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
- (state.user?'<span class="v-username">'+esc(state.user.displayName||state.user.username)+' · '+esc(state.role)+'</span>'+button('logout','Sair','btn-sm btn-ghost'):button('connect','Entrar','btn-sm btn-ghost'))+'</div></header>'+
+ '<span class="v-username">ACESSO LIVRE</span></div></header>'+
  '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(state.mode==='live'?'DADOS DO DSS':'DADOS DE TESTE')+'</div></div>'+
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
  '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:state.mode,financeiro:state.permissions.financeiro})+
  '<div class="v-tools-row">'+dateFilters+tools+'</div>'+globalSearch+detailedFilters+message+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
- '<footer class="v-footer">COSTALOG • Portal financeiro • '+(PUBLIC_DEMO?'Contas de demonstração somente neste navegador.':'Acesso baseado em permissões, dados DSS protegidos no servidor.')+'</footer></div></main></div>'+
- (state.selected?renderDrawer(d):'')+(state.connect?renderConnect():'')+
- (state.user?.mustChangePassword?renderForcePasswordChange():'')+
- (state.adminResetUser&&state.permissions.admin?renderAdminPasswordReset(state.adminResetUser):'');
+ '<footer class="v-footer">COSTALOG • Portal financeiro • '+(PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
+ (state.selected?renderDrawer(d):'');
 }
 function renderFilters(){
  if(state.view==='integracoes')return '';
@@ -255,7 +255,7 @@ function renderOcorrencias(d){
  '<p class="help">Nenhuma ocorrência carregada. A consulta complementar é feita apenas para períodos de até um mês e pode estar indisponível na DSS.</p>')+'</section>';
 }
 function renderView(d,s){
- if(state.view==='acesso')return '<section class="card"><div class="card-head"><h3>Acesso financeiro restrito</h3></div><p class="help">Entre com uma conta com permissão Financeiro ou Administrador para visualizar faturamento e relatórios.</p><button class="btn btn-red" data-action="connect">Entrar</button></section>';
+ if(state.view==='acesso')state.view='painel';
  if(state.view==='painel')return renderFinanceDashboard(d,state);
  if(state.view==='comparativos')return renderFinanceComparison(d,state);
  if(state.view==='graficos')return renderCharts(d,{financeiro:state.permissions.financeiro,interval:state.chartInterval});
@@ -782,7 +782,7 @@ root.addEventListener('click',e=>{
   if(action==='load-comparison'){fetchPeriodComparison();return;}
   render();return;
  }
- const nav=e.target.closest('[data-nav]');if(nav){if(state.user?.mustChangePassword)return;if(!permittedView(state.role,nav.dataset.nav))return;state.view=nav.dataset.nav;state.clientSelected='';state.routeSelected='';state.driverSelected='';state.globalQuery='';state.search='';state.filter='todos';state.sortKey='';state.page=1;state.menu=false;state.selected=null;render();if(state.view==='administracao'&&state.permissions.admin)loadAdminUsers();return;}
+ const nav=e.target.closest('[data-nav]');if(nav){if(!permittedView(state.role,nav.dataset.nav))return;state.view=nav.dataset.nav;state.clientSelected='';state.routeSelected='';state.driverSelected='';state.globalQuery='';state.search='';state.filter='todos';state.sortKey='';state.page=1;state.menu=false;state.selected=null;render();if(state.view==='administracao'&&state.permissions.admin)loadAdminUsers();return;}
  const sorter=e.target.closest('[data-sort-metric]');
  if(sorter){
   const [kind,key]=(sorter.dataset.sortMetric||'').split(':');
@@ -828,18 +828,16 @@ root.addEventListener('click',e=>{
  if(action==='save-filter'){const name=prompt('Nome para este conjunto de filtros:');if(name&&name.trim()){state.presets[name.trim().slice(0,45)]={from:state.from,to:state.to,customer:state.customer,vehicle:state.vehicle,serviceType:state.serviceType,search:state.search};localStorage.setItem('costalog_filter_presets',JSON.stringify(state.presets));render();}}
  if(action==='delete-filter'){const sel=document.getElementById('savedPreset'),name=sel?.value;if(!name){alert('Selecione primeiro um filtro salvo.');return;}if(confirm('Excluir o filtro salvo '+name+'?')){delete state.presets[name];localStorage.setItem('costalog_filter_presets',JSON.stringify(state.presets));render();}}
  if(action==='clear-settings'){if(confirm('Limpar filtros salvos e preferências de colunas?')){localStorage.removeItem('costalog_filter_presets');localStorage.removeItem('costalog_visible_columns');state.presets={};state.hiddenColumns={};state.autoRefresh=0;activateRefresh();render();}}
- if(action==='connect'){state.connect=true;state.selected=null;render();}
+ // O portal público não possui entrada com usuário ou senha.
  if(action==='go-viagens'){state.view='viagens';state.page=1;render();}
  if(action==='csv'){try{exportAdvanced(state.view==='clientes'?'clientes':'pedidos','csv');}catch(err){alert(err.message);}}
  if(action==='print'){try{const type=state.view==='clientes'?'clientes':'pedidos';exportAdvanced(type,'pdf');}catch(err){alert(err.message);}}
  if(action==='prev'){state.page--;render();}
  if(action==='next'){state.page++;render();}
- if(action==='demo'){clearSession();state.connect=false;render();}
- if(action==='logout'){clearSession();render();}
- if(action==='test-connect'){portalLogin();}
+ // Não há sessão para encerrar nem credenciais para validar.
 });
 root.addEventListener('submit',e=>{
- if(e.target?.id==='loginForm'){e.preventDefault();portalLogin();}
+ // Login removido do portal público.
  if(e.target?.id==='createPortalUser'){e.preventDefault();createPortalUser();}
  if(e.target?.id==='forcePasswordChange'){e.preventDefault();changePortalPassword();}
  if(e.target?.id==='resetPortalUserPassword'){
