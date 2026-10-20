@@ -9,6 +9,8 @@ import {downloadXlsx,downloadFile,printReport} from './reporting.mjs';
 import {renderAdvanced,operationalFilters,renderInsightsStrip,renderReportHub,renderGrid,ADVANCED_VIEWS} from './advanced-ui.mjs';
 import {normalizeOverview,costByClient} from './dss-mapping.mjs';
 import {renderFinanceDashboard,renderFinanceComparison} from './financial-ui.mjs';
+import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
+import {renderElectronicDocuments,docsCsv} from './e-documents-ui.mjs';
 /* COSTALOG | Viagens e Fretes. Sem credenciais no frontend. */
 const root = document.getElementById('app');
 const fmtBRL = new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL',maximumFractionDigits:0});
@@ -130,6 +132,7 @@ async function demoChangeOwnPassword(currentPassword,newPassword){
 const state = {
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
+ docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsError:'',docsLoading:false,
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',
@@ -207,14 +210,14 @@ function totals(data){
 }
 // As abas de Análises financeiras e Relatórios financeiros permanecem definidas
 // aqui para uso futuro, mas são filtradas por VISIBLE_VIEWS em access-ui.mjs.
-const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
+const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['documentos','doc','Documentos / NFS-e'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
 const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],['entregas','Entregas'],['pendencias','Pendências'],['rotas','Rotas'],['veiculos','Frota'],['motoristas','Motoristas'],['ocorrencias','Ocorrências'],['mdfes','MDF-e'],['relatorios','Relatórios'],['faturamento','Faturamento'],['clientes','Clientes'],['analises','Análises financeiras'],['administracao','Administração'],['integracoes','Integração']];
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
  state.view=safeView(state.role,state.view);
  const d=scoped(),stats=totals(d);
  const allowed=navItems.filter(x=>x[0]!=='integracoes'&&permittedView(state.role,x[0]));
- const PRIMARY=['painel','faturamento','ctes','clientes','analises','comparativos','relatorios'];
+ const PRIMARY=['painel','faturamento','documentos','ctes','clientes','analises','comparativos','relatorios'];
  const secondary=allowed.filter(x=>!PRIMARY.includes(x[0]));
  const tab=(x,cl)=>'<button type="button" class="'+cl+' '+(state.view===x[0]?'active':'')+'" data-nav="'+x[0]+'" aria-current="'+(state.view===x[0]?'page':'false')+'">'+icon(x[1])+'<span>'+esc(x[2])+'</span></button>';
  const primary=allowed.filter(x=>PRIMARY.includes(x[0])).map(x=>tab(x,'v-nav-item')).join('');
@@ -242,7 +245,7 @@ function render(){
 function renderFilters(){
  if(state.view==='integracoes')return '';
  return '<div class="filters"><div class="filter"><label for="from">De</label><input class="control" id="from" type="date" max="'+localToday()+'" value="'+attr(state.from)+'"></div><div class="filter"><label for="to">Até</label><input class="control" id="to" type="date" max="'+localToday()+'" value="'+attr(state.to)+'"></div>'+
- (['viagens','ctes','clientes','mdfes','ocorrencias',...ADVANCED_VIEWS].includes(state.view)?'<div class="filter grow"><label for="searchInput">Buscar registros</label><input id="searchInput" class="control full" type="search" placeholder="Número, placa, cliente ou situação..." value="'+attr(state.search)+'"></div>':'')+
+ (['viagens','ctes','clientes','documentos','mdfes','ocorrencias',...ADVANCED_VIEWS].includes(state.view)?'<div class="filter grow"><label for="searchInput">Buscar registros</label><input id="searchInput" class="control full" type="search" placeholder="Número, placa, cliente ou situação..." value="'+attr(state.search)+'"></div>':'')+
  (['viagens','ctes','mdfes'].includes(state.view)?'<div class="filter"><label for="statusFilter">Situação</label><select id="statusFilter" class="control"><option value="todos">Todas</option><option value="vinculado" '+(state.filter==='vinculado'?'selected':'')+'>Vinculados</option><option value="pendente" '+(state.filter==='pendente'?'selected':'')+'>Sem vínculo</option></select></div>':'')+
  (state.mode==='live'&&!PUBLIC_DEMO?'<div class="filter"><label>Consulta DSS</label><button type="button" class="btn btn-red" data-action="refresh" '+(state.loading?'disabled':'')+'>'+(state.loading?(state.loadingProgress||'Consultando DSS...'):'Atualizar dados da DSS')+'</button></div>':'')+
  '</div>';
@@ -260,6 +263,7 @@ function renderView(d,s){
  if(state.view==='acesso')state.view='painel';
  if(state.view==='painel')return renderFinanceDashboard(d,state);
  if(state.view==='comparativos')return renderFinanceComparison(d,state);
+ if(state.view==='documentos')return renderElectronicDocuments(state.docsRows,state);
  if(state.view==='graficos')return renderCharts(d,{financeiro:state.permissions.financeiro,interval:state.chartInterval});
  if(state.view==='viagens')return renderTripsHeader(d)+renderViagens(d,s);
  if(state.view==='ctes')return renderCtes(d);
@@ -683,6 +687,24 @@ async function loadData(){
  }finally{if(epoch===identityEpoch){state.loading=false;state.loadingProgress='';render();}}
 }
 
+/** Futuro frontend sob acesso corporativo; na versão GitHub Pages só há exemplos fictícios. */
+async function refreshElectronicDocuments(){
+ if(PUBLIC_DEMO||state.mode!=='live'||!state.token||!state.apiUrl){
+  state.docsError='A consulta real exige um ambiente corporativo autenticado. O site público não expõe documentos.';
+  render();return;
+ }
+ state.docsLoading=true;state.docsError='';render();
+ try{
+  const params=new URLSearchParams({from:state.from,to:state.to});
+  const resp=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/documentos-eletronicos?'+params,{
+   headers:{Authorization:'Bearer '+state.token},credentials:'omit'});
+  const payload=await resp.json();
+  if(!resp.ok)throw Error(payload.error||'Não foi possível consultar documentos.');
+  // O backend devolve somente os campos normalizados documentados.
+  state.docsRows=Array.isArray(payload.registros)?payload.registros:[];
+ }catch(error){state.docsError=String(error.message||'Falha ao consultar DSS.').slice(0,240);}
+ finally{state.docsLoading=false;render();}
+}
 function exportAdvanced(type,format){
  const raw=scoped(),full=state.reportMulti&&format==='xlsx';
  const d={...raw,
@@ -814,6 +836,11 @@ root.addEventListener('click',e=>{
  if(action==='close'||action==='close-overlay'){state.selected=null;state.connect=false;render();}
  if(action==='menu'){state.menu=!state.menu;render();}
  if(action==='refresh'&&!PUBLIC_DEMO)loadData();
+ if(action==='docs-csv'){
+  const name='COSTALOG_NFSE_'+state.from+'_'+state.to+'_'+(state.mode==='live'?'DSS':'DEMO')+'.csv';
+  downloadFile(docsCsv(state.docsRows,state),name,'text/csv;charset=utf-8');
+ }
+ if(action==='docs-refresh')refreshElectronicDocuments();
  if(action==='reload-users')loadAdminUsers();
  if(action==='close-admin-reset'){state.adminResetUser='';render();}
  if(action==='compare-periods'&&!PUBLIC_DEMO)comparePeriods();

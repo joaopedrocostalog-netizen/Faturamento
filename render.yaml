@@ -1,0 +1,38 @@
+# Serviço independente de API; website público continua em GitHub Pages.
+# Atenção: serviço Render possui URL pública, mas NÃO publica dados sem Bearer.
+services:
+  - type: web
+    name: costalog-faturamento-api
+    runtime: node
+    plan: free
+    branch: main
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DSS_BASE_URL
+        sync: false
+      # Cole a rota EXATA exibida no Swagger. Não é possível deduzi-la só do esquema JSON.
+      - key: DSS_DOCUMENTOS_PATH
+        sync: false
+      - key: DSS_AUTH_TYPE
+        value: basic
+      - key: DSS_USERNAME
+        sync: false
+      - key: DSS_PASSWORD
+        sync: false
+      - key: DSS_TIMEOUT_MS
+        value: "25000"
+      - key: DSS_DOCUMENTOS_MAX_REGISTROS
+        value: "5000"
+      - key: PORTAL_ALLOW_LEGACY_TOKEN
+        value: "true"
+      # Token longo, ALEATÓRIO e privado, usado apenas para chamadas de teste no backend.
+      - key: PORTAL_ACCESS_TOKEN
+        sync: false
+      - key: PORTAL_ALLOWED_ORIGINS
+        value: ""
+      - key: API_CACHE_SECONDS
+        value: "60"
