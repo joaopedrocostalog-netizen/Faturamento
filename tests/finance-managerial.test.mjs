@@ -26,7 +26,7 @@ test('A visão gerencial utiliza os 11 campos documentados e não contabiliza au
  assert.strictEqual(managerialMetrics(rows,[]).valorFinal,400);
  const h=renderManagerialDashboard(rows,[],{docsSource:'live'});
  for(const label of ['VISÃO GERENCIAL DSS','Valor por tipo de operação','Principais parceiros','Documentos por situação','Documentos por modelo','Ponto de apoio','EVOLUÇÃO','COBERTURA DOS CAMPOS DA API'])assert(h.toUpperCase().includes(label.toUpperCase()),label);
- assert(!h.includes('valor recebido'));
+ assert(h.includes('valor recebido')&&h.includes('Não somar automaticamente'), 'A tela deve avisar que NFS-e não é pagamento recebido');
  assert(!h.includes('<script>'));
 });
 test('Documentos filtram tipo de operação e ponto de apoio, com ID e paginação',()=>{
