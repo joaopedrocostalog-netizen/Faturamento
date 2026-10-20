@@ -38,8 +38,18 @@ test('Resumo e comparativo exibem dados financeiros, sem indicadores de frota',(
  assert(!home.includes('Análise por Cliente'));
  assert(!home.includes('ANÁLISE FINANCEIRA'));
  assert(!home.includes('ANÁLISE DE FATURAMENTO'));
- assert(comparison.includes('Fretes informados'));
- assert(comparison.includes('Liberados sem nº de fatura'));
+ assert(comparison.includes('CONSULTAR COMPARATIVO NO DSS'));
+ assert(comparison.includes('id="compareCurrentFrom"'));
+ assert(comparison.includes('id="comparePreviousFrom"'));
+ assert(!comparison.includes('Fretes informados</td>'),'Não presumir dados de demonstração sem consulta DSS');
+ const actual={...state,mode:'live',comparison:{
+  currentRange:{from:state.compareCurrentFrom,to:state.compareCurrentTo},
+  previousRange:{from:state.comparePreviousFrom,to:state.comparePreviousTo},
+  current:empty,previous:empty,source:'DSS'
+ }};
+ const withData=renderFinanceComparison(empty,actual);
+ assert(withData.includes('Fretes informados'));
+ assert(withData.includes('Liberados sem nº de fatura'));
  assert(!home.includes('VER TODAS AS VIAGENS'));
 });
 test('A navegação do frontend é financeira',()=>{

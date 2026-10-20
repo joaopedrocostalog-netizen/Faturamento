@@ -8,7 +8,7 @@ import {buildInsights,extractRows,REPORT_TYPES} from './operational.mjs';
 import {downloadXlsx,downloadFile,printReport} from './reporting.mjs';
 import {renderAdvanced,operationalFilters,renderInsightsStrip,renderReportHub,renderGrid,ADVANCED_VIEWS} from './advanced-ui.mjs';
 import {normalizeOverview,costByClient} from './dss-mapping.mjs';
-import {renderFinanceDashboard,renderFinanceComparison} from './financial-ui.mjs';
+import {renderFinanceDashboard,renderFinanceComparison,renderComparisonSyncDialog} from './financial-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
 import {fetchAuthorizedDocuments,fetchAuthorizedOverview} from './dss-sync.mjs';
@@ -136,7 +136,7 @@ const state = {
  docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
- metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',
+ metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
  customer:'',vehicle:'',serviceType:'',sortKey:'',sortDir:'desc',alertPriority:'todos',
  hiddenColumns:readPrefs('costalog_visible_columns',{}),presets:readPrefs('costalog_filter_presets',{}),
  demoOnly:PUBLIC_DEMO,reportSelected:'pedidos',reportMulti:false,autoRefresh:0,lastSync:null,prevDataset:null,lateDays:2,apiDiagnostics:null,adminUsers:[],adminUsersLoading:false,adminUsersError:'',adminResetUser:'',role:'financeiro',user:null,permissions:{operacional:false,financeiro:true,admin:false}
@@ -224,9 +224,11 @@ function render(){
  const tab=(x,cl)=>'<button type="button" class="'+cl+' '+(state.view===x[0]?'active':'')+'" data-nav="'+x[0]+'" aria-current="'+(state.view===x[0]?'page':'false')+'">'+icon(x[1])+'<span>'+esc(x[2])+'</span></button>';
  const primary=allowed.filter(x=>PRIMARY.includes(x[0])).map(x=>tab(x,'v-nav-item')).join('');
  const sub=secondary.map(x=>tab(x,'v-sub-item')).join('');
- const message=state.mode==='live'
-  ?'<div class="info-strip live"><strong>DSS SINCRONIZADO</strong> · Todas as abas de Faturamento utilizam dados reais do período '+esc(state.loadedRange?.from||state.from)+' a '+esc(state.loadedRange?.to||state.to)+' · '+esc(state.docsUpdatedAt||'')+'.</div>'
-  :'<div class="info-strip v-demo-notice"><strong>DEMONSTRAÇÃO</strong> · Dados fictícios. Para sincronizar o site inteiro com DSS, use o botão vermelho ao lado das datas.</div>';
+ const message=state.view==='comparativos'
+  ?'<div class="info-strip '+(state.comparison?.source==='DSS'?'live':'')+'"><strong>COMPARATIVO INDEPENDENTE</strong> · As datas A e B e a consulta ao DSS desta aba são separadas da sincronização geral do site.</div>'
+  :state.mode==='live'
+  ?'<div class="info-strip live"><strong>DSS SINCRONIZADO</strong> · Painel, Faturamento, NFS-e, Pedidos e Clientes usam o período '+esc(state.loadedRange?.from||state.from)+' a '+esc(state.loadedRange?.to||state.to)+' · '+esc(state.docsUpdatedAt||'')+'.</div>'
+  :'<div class="info-strip v-demo-notice"><strong>DEMONSTRAÇÃO</strong> · Dados fictícios. Para sincronizar o site, use o botão vermelho ao lado das datas.</div>';
  const detailedFilters=state.view!=='acesso'?'<details class="v-extra-filters"><summary>⚙ Filtros avançados <span>Cliente, placa, serviço e períodos rápidos</span></summary>'+operationalFilters(d,state)+'</details>':'';
  const tools=['ctes','relatorios','faturamento','clientes'].includes(state.view)?
   '<div class="v-heading-tools">'+button('csv',icon('download')+' CSV','btn-sm')+button('print','PDF / Imprimir','btn-sm btn-red')+'</div>':'';
@@ -245,7 +247,8 @@ function render(){
  renderView(d,stats)+
  '<footer class="v-footer">COSTALOG • Portal de faturamento • '+(docsLive?'NFS-e: registros DSS consultados com token privado • Demais abas: demonstração.':PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
  (state.selected?renderDrawer(d):'')+
- (state.docsSyncOpen?renderDocumentsSyncDialog(state):'');
+ (state.docsSyncOpen?renderDocumentsSyncDialog(state):'')+
+ (state.comparisonSyncOpen?renderComparisonSyncDialog(state):'');
 }
 function renderFilters(){
  if(state.view==='integracoes')return '';
@@ -576,41 +579,50 @@ function saveMetricPreferences(){
  localStorage.setItem(metricPrefsKey(),JSON.stringify(normalizedLayout(state.metricLayout,{financial:!!state.permissions.financeiro})));
 }
 let comparisonSeq=0;
-async function fetchPeriodComparison(){
- if(state.mode!=='live'||!state.apiUrl||!state.token)return;
- const interval=state.compareInterval,anchor=state.compareAnchor;
- const windows={current:{from:state.compareCurrentFrom,to:state.compareCurrentTo},previous:{from:state.comparePreviousFrom,to:state.comparePreviousTo}};
- if(windows.current.from>windows.current.to||windows.previous.from>windows.previous.to){state.comparisonError='Corrija os períodos: a data inicial não pode superar a final.';render();return;}
- const seq=++comparisonSeq,identity=identityEpoch;
- state.comparisonLoading=true;state.comparisonError='';state.comparison=null;render();
+/** O comparativo usa somente os próprios intervalos A e B, nunca state.from/to.
+ * Não lê nem escreve o conjunto global do Painel.
+ */
+async function fetchPeriodComparison(token){
+ const windows={
+  current:{from:state.compareCurrentFrom,to:state.compareCurrentTo},
+  previous:{from:state.comparePreviousFrom,to:state.comparePreviousTo}
+ };
+ const isValid=range=>/^\d{4}-\d{2}-\d{2}$/.test(range.from)&&
+  /^\d{4}-\d{2}-\d{2}$/.test(range.to)&&range.from<=range.to;
+ if(!isValid(windows.current)||!isValid(windows.previous)){
+  state.comparisonSyncOpen=false;state.comparisonError='Selecione datas válidas, com início anterior ou igual ao fim, nos dois períodos.';
+  render();return;
+ }
+ const seq=++comparisonSeq;
+ state.comparisonSyncOpen=false;
+ state.comparisonLoading=true;state.comparisonError='';render();
  try{
   const get=async range=>{
-   const url=state.apiUrl.replace(/\/$/,'')+'/api/overview?from='+range.from+'&to='+range.to;
-   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),180000);
-   try{
-    const res=await fetch(url,{headers:{Authorization:'Bearer '+state.token},credentials:'omit',signal:controller.signal});
-    if(!res.ok){let reason='HTTP '+res.status;try{reason=(await res.json()).error||reason;}catch{}if(res.status===401)throw Error('O servidor recusou a sessão (HTTP 401). Entre novamente no portal e tente outra vez. Se persistir, verifique os logs de autenticação do backend.');throw Error(reason);}
-    return normalizePayload(await res.json());
-   }finally{clearTimeout(timer);}
+   const months=splitMonths(range.from,range.to);
+   const items=new Array(months.length);
+   let next=0;
+   const worker=async()=>{
+    while(next<months.length){
+     const index=next++;
+     items[index]=await fetchAuthorizedOverview({token,from:months[index].from,to:months[index].to});
+    }
+   };
+   await Promise.all(Array.from({length:Math.min(2,months.length)},worker));
+   return mergeOverviewResponses(items);
   };
-  // Reutilizar somente dados reais cujo intervalo completo foi carregado com sucesso.
-  // Nunca tratar dados de uma consulta parcial ou antiga como cobertura completa.
-  const covered=range=>state.loadedRange&&state.loadedRange.from<=range.from&&state.loadedRange.to>=range.to&&state.mode==='live';
-  const getOrReuse=range=>covered(range)?Promise.resolve(subsetPeriod(state.dataset,range)):get(range);
-  const [current,previous]=await Promise.all([getOrReuse(windows.current),getOrReuse(windows.previous)]);
-  if(seq!==comparisonSeq||identity!==identityEpoch)return;
-  const matches=r=>(!state.customer||r.cliente===state.customer)&&(!state.vehicle||r.placa===state.vehicle);
-  const filter=d=>{
-   const pedidos=d.pedidos.filter(p=>matches(p)&&(!state.serviceType||p.tipoServico===state.serviceType));
-   const allowedTripIds=state.serviceType?new Set(pedidos.map(p=>p.viagemId).filter(Boolean)):null;
-   const viagens=d.viagens.filter(v=>matches(v)&&(!allowedTripIds||allowedTripIds.has(v.id)));
-   return {...d,viagens,pedidos,ctes:pedidos.filter(p=>p.isCte)};
+  const [current,previous]=await Promise.all([get(windows.current),get(windows.previous)]);
+  if(seq!==comparisonSeq)return;
+  state.comparison={
+   currentRange:windows.current,previousRange:windows.previous,
+   current,previous,source:'DSS',updatedAt:new Date().toISOString()
   };
-  state.comparison={anchor,interval,custom:!!state.compareCustom,currentRange:windows.current,previousRange:windows.previous,current:filter(current),previous:filter(previous),source:'DSS'};
- }catch(err){
-  if(seq===comparisonSeq&&identity===identityEpoch)state.comparisonError='Não foi possível consultar ambos os períodos no DSS: '+err.message;
+ }catch(error){
+  if(seq===comparisonSeq){
+   state.comparisonError='Não foi possível consultar os períodos A e B no DSS: '+
+    String(error?.message||'Falha de comunicação').slice(0,210);
+  }
  }finally{
-  if(seq===comparisonSeq&&identity===identityEpoch){state.comparisonLoading=false;render();}
+  if(seq===comparisonSeq){state.comparisonLoading=false;render();}
  }
 }
 function clearSession(){
@@ -709,7 +721,7 @@ function invalidateSyncedDocuments(){
  if(state.mode==='live'||state.docsSource==='pending'||state.docsLoading){
   state.dataset=demo;state.mode='demo';state.loadedRange=null;
   state.docsRows=[];state.docsSource='pending';state.docsUpdatedAt='';
-  state.lastSync=null;state.comparison=null;state.prevDataset=null;
+  state.lastSync=null;state.prevDataset=null;
  }
  state.docsLoading=false;state.syncProgress='';state.syncError='';state.docsError='';state.page=1;state.docsPage=1;
  scopedCache=null;
@@ -744,15 +756,8 @@ async function synchronizeElectronicDocuments(token){
   // Commit atômico: não misturar dados de fontes e períodos diferentes.
   state.dataset=normalized;state.docsRows=rows;state.mode='live';state.docsSource='live';
   state.loadedRange={from,to};state.docsUpdatedAt=new Date().toLocaleString('pt-BR');
-  state.lastSync=new Date().toISOString();state.prevDataset=null;state.comparison=null;
+  state.lastSync=new Date().toISOString();state.prevDataset=null;
   state.page=1;state.docsPage=1;scopedCache=null;
-  // Comparativos entre dois subperíodos dos dados já sincronizados.
-  const start=new Date(from+'T12:00:00Z'),end=new Date(to+'T12:00:00Z');
-  const mid=new Date(start.getTime()+Math.floor((end.getTime()-start.getTime())/2));
-  const midDate=mid.toISOString().slice(0,10);
-  const nextDay=new Date(mid.getTime()+86400000).toISOString().slice(0,10);
-  state.comparePreviousFrom=from;state.comparePreviousTo=midDate;
-  state.compareCurrentFrom=nextDay<=to?nextDay:midDate;state.compareCurrentTo=to;
  }catch(error){
   if(epoch!==documentsSyncEpoch)return;
   const msg=String(error?.message||'O DSS não respondeu.').slice(0,240);
@@ -859,7 +864,12 @@ root.addEventListener('click',e=>{
   if(action==='clear-driver')state.driverSelected='';
   if(action==='customize')state.showMetricOptions=!state.showMetricOptions;
   if(action==='reset-metrics'){state.metricLayout=null;try{localStorage.removeItem(metricPrefsKey());}catch{}}
-  if(action==='load-comparison'){fetchPeriodComparison();return;}
+  if(action==='load-comparison'){
+   if(state.comparisonLoading)return;
+   state.comparisonSyncOpen=true;state.comparisonError='';render();
+   document.getElementById('comparisonSyncToken')?.focus();
+   return;
+  }
   render();return;
  }
  const docSort=e.target.closest('[data-doc-sort]');
@@ -907,6 +917,8 @@ root.addEventListener('click',e=>{
  }
  if(action==='docs-sync-open'&&!state.docsLoading){state.docsSyncOpen=true;render();document.getElementById('docsSyncToken')?.focus();}
  if(action==='docs-sync-cancel'){state.docsSyncOpen=false;render();}
+ if(action==='comparison-sync-cancel'){state.comparisonSyncOpen=false;render();}
+ if(action==='comparison-sync-backdrop'&&e.target===act){state.comparisonSyncOpen=false;render();}
  if(action==='docs-clear-filters'){state.docsStatus='';state.docsModel='';state.docsSortKey='valorFinal';state.docsSortDir='desc';state.docsPage=1;state.search='';render();}
  if(action==='docs-prev'&&state.docsPage>1){state.docsPage--;render();}
  if(action==='docs-next'){state.docsPage++;render();}
@@ -937,6 +949,13 @@ root.addEventListener('click',e=>{
  // Não há sessão para encerrar nem credenciais para validar.
 });
 root.addEventListener('submit',e=>{
+ if(e.target?.id==='comparisonSyncForm'){
+  e.preventDefault();
+  const input=document.getElementById('comparisonSyncToken'),token=input?.value||'';
+  if(input)input.value='';
+  fetchPeriodComparison(token);
+  return;
+ }
  if(e.target?.id==='docsSyncForm'){
   e.preventDefault();
   const input=document.getElementById('docsSyncToken'),token=input?.value||'';
@@ -1025,7 +1044,7 @@ root.addEventListener('keydown',e=>{
  const point=e.target?.closest?.('[data-chart-point]');
  if(point&&(e.key==='Enter'||e.key===' ')){e.preventDefault();activateChartPoint(point);}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state.selected||state.connect||state.docsSyncOpen)){state.selected=null;state.connect=false;state.docsSyncOpen=false;render();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state.selected||state.connect||state.docsSyncOpen||state.comparisonSyncOpen)){state.selected=null;state.connect=false;state.docsSyncOpen=false;state.comparisonSyncOpen=false;render();}});
 loadMetricPreferences();
 render();
 // Nenhuma consulta automática ao abrir o portal.

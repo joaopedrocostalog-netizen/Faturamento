@@ -1,6 +1,5 @@
 /** COSTALOG Financeiro — apresenta somente indicadores e registros de faturamento. */
 import {buildInsights} from './operational.mjs';
-import {subsetPeriod} from './intelligence.mjs';
 import {renderAdvanced} from './advanced-ui.mjs';
 import {SHOW_FINANCE_ONLY_TABS} from './access-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -35,9 +34,8 @@ const comparisons=d=>{const t=buildInsights(d).totals;return [
 export function renderFinanceComparison(data,state){
  const current={from:state.compareCurrentFrom,to:state.compareCurrentTo};
  const previous={from:state.comparePreviousFrom,to:state.comparePreviousTo};
- let c=state.comparison;
- const inLoaded=state.loadedRange&&[current.from,current.to,previous.from,previous.to].every(x=>x>=state.loadedRange.from&&x<=state.loadedRange.to);
- if(state.mode==='demo'||inLoaded)c={currentRange:current,previousRange:previous,current:subsetPeriod(state.dataset,current),previous:subsetPeriod(state.dataset,previous)};
+ // Comparativo independente: não herdar ou recalcular usando a sincronização global.
+ const c=state.comparison;
  const ready=c&&c.currentRange?.from===current.from&&c.currentRange?.to===current.to&&c.previousRange?.from===previous.from&&c.previousRange?.to===previous.to;
  const left=ready?comparisons(c.current):[],right=ready?comparisons(c.previous):[];
  const lines=left.map((m,i)=>{
@@ -46,11 +44,31 @@ export function renderFinanceComparison(data,state){
    const fmt=m.money?brl:num;
    return '<tr><td>'+esc(m.label)+'</td><td>'+esc(fmt(m.value))+'</td><td>'+esc(fmt(prev))+'</td><td>'+esc(fmt(delta))+'</td><td>'+esc(percent===null?'—':percent.toFixed(1).replace('.',',')+'%')+'</td></tr>';
  }).join('');
- return '<section class="ins-module"><div class="ins-toolbar"><div><h2>COMPARATIVO DE FATURAMENTO</h2><p>Compare pedidos, valores de fretes e situação de faturamento entre dois períodos.</p></div></div>'+
+ return '<section class="ins-module"><div class="ins-toolbar"><div><h2>COMPARATIVO DE FATURAMENTO</h2><p>Consulte dois períodos diretamente no DSS, independentemente das datas do restante do site.</p></div></div>'+
  '<div class="ins-compare-anchor"><label>Período A: de <input type="date" id="compareCurrentFrom" value="'+esc(current.from)+'"></label><label>Até <input type="date" id="compareCurrentTo" value="'+esc(current.to)+'"></label><label>Período B: de <input type="date" id="comparePreviousFrom" value="'+esc(previous.from)+'"></label><label>Até <input type="date" id="comparePreviousTo" value="'+esc(previous.to)+'"></label></div>'+
  '<div class="ins-period-label"><div><small>PERÍODO A</small><strong>'+esc(date(current.from))+' a '+esc(date(current.to))+'</strong></div><div><small>PERÍODO B</small><strong>'+esc(date(previous.from))+' a '+esc(date(previous.to))+'</strong></div></div>'+
- (state.mode==='live'&&!ready?'<div class="ins-compare-init"><p>Selecione ambos os períodos dentro do intervalo sincronizado ('+esc(state.loadedRange?.from||'—')+' a '+esc(state.loadedRange?.to||'—')+'). Para outras datas, sincronize novamente no topo.</p></div>':'')+
- (state.comparisonLoading?'<p class="ins-hint">Consultando DSS...</p>':'')+(state.comparisonError?'<p class="ins-inline-error">'+esc(state.comparisonError)+'</p>':'')+
+ '<div class="ins-compare-actions"><button type="button" class="btn btn-red" data-ins-action="load-comparison" '+(state.comparisonLoading?'disabled':'')+'>'+(state.comparisonLoading?'CONSULTANDO COMPARATIVO...':'CONSULTAR COMPARATIVO NO DSS')+'</button>'+
+ '<span>Consulta exclusiva do Comparativo. Não modifica o período global nem as outras abas.</span></div>'+
+ (!ready&&!state.comparisonLoading?'<div class="ins-compare-init"><p>Selecione as datas dos períodos A e B e clique em CONSULTAR COMPARATIVO NO DSS. Os períodos podem ser diferentes do intervalo do Painel.</p></div>':'')+
+ (ready?'<p class="ins-hint">Resultado real do DSS somente para os dois períodos selecionados.</p>':'')+
+ (state.comparisonLoading?'<p class="ins-hint">Consultando os dois períodos no DSS; o restante do site não será alterado.</p>':'')+(state.comparisonError?'<p class="ins-inline-error">'+esc(state.comparisonError)+'</p>':'')+
  (ready?'<div class="ins-responsive-table"><table><thead><tr><th>Indicador</th><th>Período A</th><th>Período B</th><th>Diferença</th><th>Variação</th></tr></thead><tbody>'+lines+'</tbody></table></div>':'')+
  '<p class="ins-hint">Frete informado não comprova recebimento. Valores ausentes não são tratados como zero; variações com base zero não são calculadas.</p></section>';
+}
+/** Autorização exclusiva do comparativo; token sem persistência no navegador. */
+export function renderComparisonSyncDialog(state){
+ return '<div class="overlay" data-action="comparison-sync-backdrop">'+
+ '<div class="drawer docs-sync-drawer" role="dialog" aria-modal="true" aria-labelledby="comparisonSyncTitle">'+
+ '<div class="drawer-top"><h2 id="comparisonSyncTitle">Consultar comparativo no DSS</h2>'+
+ '<button type="button" class="btn" data-action="comparison-sync-cancel">Fechar</button></div>'+
+ '<p>Atualiza somente o Comparativo, sem modificar o Painel, as notas fiscais, os pedidos ou o período global.</p>'+
+ '<p>Período A: '+esc(date(state.compareCurrentFrom))+' a '+esc(date(state.compareCurrentTo))+'</p>'+
+ '<p>Período B: '+esc(date(state.comparePreviousFrom))+' a '+esc(date(state.comparePreviousTo))+'</p>'+
+ '<form id="comparisonSyncForm" autocomplete="off">'+
+ '<label for="comparisonSyncToken">Token privado de sincronização DSS</label>'+
+ '<input id="comparisonSyncToken" class="control full" type="password" required minlength="12" autocomplete="off" spellcheck="false" placeholder="Token privado do Render">'+
+ '<p class="footer-note">O token será usado somente nesta consulta e não ficará salvo no navegador.</p>'+
+ '<div class="v-bottom-actions"><button type="submit" class="btn btn-red">Consultar períodos A e B</button>'+
+ '<button type="button" class="btn" data-action="comparison-sync-cancel">Cancelar</button></div>'+
+ '</form></div></div>';
 }

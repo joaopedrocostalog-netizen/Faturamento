@@ -49,3 +49,7 @@ O único botão **SINCRONIZAR COM DSS** está ao lado das datas, em todas as aba
 
 ### Preparação no Render
 É necessário configurar `DSS_BASE_URL`, `DSS_USERNAME`, `DSS_PASSWORD`, `DSS_DOCUMENTOS_PATH` e `DSS_NFSE_SYNC_TOKEN`. Os endpoints `DSS_VIAGENS_PATH` e `DSS_PEDIDOS_PATH` devem corresponder às operações já utilizadas no portal Viagens-PF. A falta de qualquer fonte gera erro informativo, não dados fictícios apresentados como reais.
+
+## Comparativo independente da sincronização geral
+
+A consulta `CONSULTAR COMPARATIVO NO DSS` dentro da aba **Comparativos** é separada da ação `SINCRONIZAR COM DSS` do cabeçalho. Os períodos A e B permanecem como escolhidos pelo usuário mesmo depois da sincronização do site, sem herdar ou sofrer alteração pelas datas globais. A consulta pede o token privado somente no momento do uso, utiliza o backend protegido `GET /api/overview`, preenche apenas a tabela do comparativo e não altera pedidos, documentos ou indicadores das outras abas. A resposta deve conter todos os meses pedidos, ou nenhum resultado de comparação é aplicado. Os dados comparativos são mantidos apenas na memória da página, não no armazenamento local.
