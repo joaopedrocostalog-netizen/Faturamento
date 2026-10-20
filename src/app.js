@@ -10,7 +10,8 @@ import {renderAdvanced,operationalFilters,renderInsightsStrip,renderReportHub,re
 import {normalizeOverview,costByClient} from './dss-mapping.mjs';
 import {renderFinanceDashboard,renderFinanceComparison} from './financial-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
-import {renderElectronicDocuments,docsCsv} from './e-documents-ui.mjs';
+import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
+import {fetchAuthorizedDocuments} from './dss-sync.mjs';
 /* COSTALOG | Viagens e Fretes. Sem credenciais no frontend. */
 const root = document.getElementById('app');
 const fmtBRL = new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL',maximumFractionDigits:0});
@@ -132,7 +133,7 @@ async function demoChangeOwnPassword(currentPassword,newPassword){
 const state = {
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
- docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsError:'',docsLoading:false,
+ docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',
@@ -215,6 +216,7 @@ const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
  state.view=safeView(state.role,state.view);
+ const docsLive=state.view==='documentos'&&state.docsSource==='live';
  const d=scoped(),stats=totals(d);
  const allowed=navItems.filter(x=>x[0]!=='integracoes'&&permittedView(state.role,x[0]));
  const PRIMARY=['painel','faturamento','documentos','ctes','clientes','analises','comparativos','relatorios'];
@@ -222,8 +224,9 @@ function render(){
  const tab=(x,cl)=>'<button type="button" class="'+cl+' '+(state.view===x[0]?'active':'')+'" data-nav="'+x[0]+'" aria-current="'+(state.view===x[0]?'page':'false')+'">'+icon(x[1])+'<span>'+esc(x[2])+'</span></button>';
  const primary=allowed.filter(x=>PRIMARY.includes(x[0])).map(x=>tab(x,'v-nav-item')).join('');
  const sub=secondary.map(x=>tab(x,'v-sub-item')).join('');
- const message=state.view==='acesso'?'':state.mode==='live'?'<div class="info-strip '+(state.error?'error':'live')+'"><strong>DSS:</strong> '+(state.error?'Última atualização falhou. Mostrando dados reais anteriores, que podem estar desatualizados. '+esc(state.error):'Dados consultados no servidor. Campos ausentes são exibidos como “—”.')+'</div>':
- '<div class="info-strip v-demo-notice"><strong>AMBIENTE DE DEMONSTRAÇÃO</strong> · Registros fictícios. A integração DSS utilizará estas mesmas telas quando o backend privado estiver configurado.</div>';
+ const message=docsLive?'<div class="info-strip live"><strong>NFS-e SINCRONIZADAS COM DSS</strong> · Apenas os documentos desta aba foram consultados com autorização privada. As demais abas permanecem em demonstração.</div>':
+ state.view==='acesso'?'':state.mode==='live'?'<div class="info-strip '+(state.error?'error':'live')+'"><strong>DSS:</strong> '+(state.error?'Última atualização falhou. Mostrando dados reais anteriores, que podem estar desatualizados. '+esc(state.error):'Dados consultados no servidor. Campos ausentes são exibidos como “—”.')+'</div>':
+ '<div class="info-strip v-demo-notice"><strong>AMBIENTE DE DEMONSTRAÇÃO</strong> · Registros fictícios. Use SINCRONIZAR COM DSS na aba Documentos / NFS-e para consultar dados reais com autorização privada.</div>';
  const detailedFilters=state.view!=='acesso'?'<details class="v-extra-filters"><summary>⚙ Filtros avançados <span>Cliente, placa, serviço e períodos rápidos</span></summary>'+operationalFilters(d,state)+'</details>':'';
  const tools=['ctes','relatorios','faturamento','clientes'].includes(state.view)?
   '<div class="v-heading-tools">'+button('csv',icon('download')+' CSV','btn-sm')+button('print','PDF / Imprimir','btn-sm btn-red')+'</div>':'';
@@ -231,16 +234,17 @@ function render(){
  const globalSearch='';
  root.innerHTML='<div class="layout v-app"><main class="main v-main">'+
  '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="./logo-costalog-sem-fundo-1024x876.png" alt="Logotipo COSTALOG"><div><b>COSTALOG</b><small>A LOGÍSTICA IDEAL</small></div><i></i><strong>GESTÃO DE FATURAMENTO</strong></div>'+
- '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'?'connected':'')+'">'+(state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
+ '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'||docsLive?'connected':'')+'">'+(docsLive?'● DSS NFS-e':state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
  '<span class="v-username">ACESSO LIVRE</span></div></header>'+
- '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(state.mode==='live'?'DADOS DO DSS':'DADOS DE TESTE')+'</div></div>'+
+ '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(docsLive?'NFS-e DSS':state.mode==='live'?'DADOS DO DSS':'DADOS DE TESTE')+'</div></div>'+
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
- '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:state.mode,financeiro:state.permissions.financeiro})+
+ '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:docsLive?'live':state.mode,financeiro:state.permissions.financeiro})+
  '<div class="v-tools-row">'+dateFilters+tools+'</div>'+globalSearch+detailedFilters+message+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
- '<footer class="v-footer">COSTALOG • Portal de faturamento • '+(PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
- (state.selected?renderDrawer(d):'');
+ '<footer class="v-footer">COSTALOG • Portal de faturamento • '+(docsLive?'NFS-e: registros DSS consultados com token privado • Demais abas: demonstração.':PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
+ (state.selected?renderDrawer(d):'')+
+ (state.docsSyncOpen?renderDocumentsSyncDialog(state):'');
 }
 function renderFilters(){
  if(state.view==='integracoes')return '';
@@ -688,22 +692,29 @@ async function loadData(){
 }
 
 /** Futuro frontend sob acesso corporativo; na versão GitHub Pages só há exemplos fictícios. */
-async function refreshElectronicDocuments(){
- if(PUBLIC_DEMO||state.mode!=='live'||!state.token||!state.apiUrl){
-  state.docsError='A consulta real exige um ambiente corporativo autenticado. O site público não expõe documentos.';
-  render();return;
+let documentsSyncEpoch=0;
+function invalidateSyncedDocuments(){
+ documentsSyncEpoch++;
+ if(state.docsSource==='live'||state.docsSource==='pending'){
+  state.docsRows=[];state.docsSource='pending';state.docsUpdatedAt='';
  }
- state.docsLoading=true;state.docsError='';render();
+ state.docsLoading=false;state.docsError='';
+}
+/** O token permanece somente na variável local desta requisição. */
+async function synchronizeElectronicDocuments(token){
+ const epoch=++documentsSyncEpoch,from=state.from,to=state.to;
+ state.docsSyncOpen=false;state.docsLoading=true;state.docsError='';render();
  try{
-  const params=new URLSearchParams({from:state.from,to:state.to});
-  const resp=await fetch(state.apiUrl.replace(/\/$/,'')+'/api/documentos-eletronicos?'+params,{
-   headers:{Authorization:'Bearer '+state.token},credentials:'omit'});
-  const payload=await resp.json();
-  if(!resp.ok)throw Error(payload.error||'Não foi possível consultar documentos.');
-  // O backend devolve somente os campos normalizados documentados.
-  state.docsRows=Array.isArray(payload.registros)?payload.registros:[];
- }catch(error){state.docsError=String(error.message||'Falha ao consultar DSS.').slice(0,240);}
- finally{state.docsLoading=false;render();}
+  const rows=await fetchAuthorizedDocuments({token,from,to});
+  if(epoch!==documentsSyncEpoch)return;
+  state.docsRows=rows;state.docsSource='live';
+  state.docsUpdatedAt=new Date().toLocaleString('pt-BR');
+ }catch(error){
+  if(epoch!==documentsSyncEpoch)return;
+  state.docsError=String(error?.message||'Falha de sincronização com DSS.').slice(0,240);
+ }finally{
+  if(epoch===documentsSyncEpoch){state.docsLoading=false;render();}
+ }
 }
 function exportAdvanced(type,format){
  const raw=scoped(),full=state.reportMulti&&format==='xlsx';
@@ -837,10 +848,12 @@ root.addEventListener('click',e=>{
  if(action==='menu'){state.menu=!state.menu;render();}
  if(action==='refresh'&&!PUBLIC_DEMO)loadData();
  if(action==='docs-csv'){
-  const name='COSTALOG_NFSE_'+state.from+'_'+state.to+'_'+(state.mode==='live'?'DSS':'DEMO')+'.csv';
+  const name='COSTALOG_NFSE_'+state.from+'_'+state.to+'_'+(state.docsSource==='live'?'DSS':'DEMO')+'.csv';
   downloadFile(docsCsv(state.docsRows,state),name,'text/csv;charset=utf-8');
  }
- if(action==='docs-refresh')refreshElectronicDocuments();
+ if(action==='docs-sync-open'&&!state.docsLoading){state.docsSyncOpen=true;render();document.getElementById('docsSyncToken')?.focus();}
+ if(action==='docs-sync-cancel'){state.docsSyncOpen=false;render();}
+ if(action==='docs-sync-backdrop'&&e.target===act){state.docsSyncOpen=false;render();}
  if(action==='reload-users')loadAdminUsers();
  if(action==='close-admin-reset'){state.adminResetUser='';render();}
  if(action==='compare-periods'&&!PUBLIC_DEMO)comparePeriods();
@@ -866,6 +879,13 @@ root.addEventListener('click',e=>{
  // Não há sessão para encerrar nem credenciais para validar.
 });
 root.addEventListener('submit',e=>{
+ if(e.target?.id==='docsSyncForm'){
+  e.preventDefault();
+  const input=document.getElementById('docsSyncToken'),token=input?.value||'';
+  if(input)input.value='';
+  synchronizeElectronicDocuments(token);
+  return;
+ }
  // Login removido do portal público.
  if(e.target?.id==='createPortalUser'){e.preventDefault();createPortalUser();}
  if(e.target?.id==='forcePasswordChange'){e.preventDefault();changePortalPassword();}
@@ -882,8 +902,8 @@ root.addEventListener('change',e=>{
   else render();
   return;
  }
- if(e.target.id==='from'){state.from=e.target.value>localToday()?localToday():e.target.value;if(state.from>state.to)state.to=state.from;state.page=1;render();}
- if(e.target.id==='to'){state.to=e.target.value>localToday()?localToday():e.target.value;if(state.to<state.from)state.from=state.to;state.page=1;render();}
+ if(e.target.id==='from'){state.from=e.target.value>localToday()?localToday():e.target.value;if(state.from>state.to)state.to=state.from;state.page=1;invalidateSyncedDocuments();render();}
+ if(e.target.id==='to'){state.to=e.target.value>localToday()?localToday():e.target.value;if(state.to<state.from)state.from=state.to;state.page=1;invalidateSyncedDocuments();render();}
  if(e.target.id==='compareCustom'){state.compareCustom=e.target.checked;state.comparison=null;state.comparisonError='';comparisonSeq++;render();return;}
  if(['compareCurrentFrom','compareCurrentTo','comparePreviousFrom','comparePreviousTo'].includes(e.target.id)){state[e.target.id]=e.target.value;state.compareCustom=true;state.comparison=null;state.comparisonError='';comparisonSeq++;render();return;}
  if(e.target.id==='compareAnchorInput'){
@@ -913,7 +933,7 @@ root.addEventListener('change',e=>{
   if(e.target.value==='last-month'){from=new Date(Date.UTC(now.getFullYear(),now.getMonth()-1,1));to=new Date(Date.UTC(now.getFullYear(),now.getMonth(),0));}
   if(e.target.value==='this-year'){from=new Date(Date.UTC(now.getFullYear(),0,1));to=today;}
   if(e.target.value==='last-90'){from=new Date(today.getTime()-89*86400000);to=today;}
-  state.from=iso(from);state.to=iso(to);state.page=1;state.prevDataset=null;
+  state.from=iso(from);state.to=iso(to);state.page=1;state.prevDataset=null;invalidateSyncedDocuments();
   render();
  }
  if(e.target.dataset.columnToggle){
@@ -943,7 +963,7 @@ root.addEventListener('keydown',e=>{
  const point=e.target?.closest?.('[data-chart-point]');
  if(point&&(e.key==='Enter'||e.key===' ')){e.preventDefault();activateChartPoint(point);}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state.selected||state.connect)){state.selected=null;state.connect=false;render();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state.selected||state.connect||state.docsSyncOpen)){state.selected=null;state.connect=false;state.docsSyncOpen=false;render();}});
 loadMetricPreferences();
 render();
 // Nenhuma consulta automática ao abrir o portal.

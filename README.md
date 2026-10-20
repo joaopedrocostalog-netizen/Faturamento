@@ -33,3 +33,10 @@ O backend de referência está incluído para futura adaptação privada, **mas 
 A nova aba traz pesquisa, filtro por emissão, listagem, totais de valor final e ISS, faturas e exportação CSV. O GitHub Pages mostra **somente exemplos fictícios**.
 
 O backend dispõe de `GET /api/documentos-eletronicos` autenticado. O serviço está descrito em [INTEGRACAO_DOCUMENTOS_NFSE.md](./INTEGRACAO_DOCUMENTOS_NFSE.md), e o [render.yaml](./render.yaml) define o Blueprint para o Render. A rota específica da operação no DSS precisa ser confirmada no Swagger antes de consultas reais. Nenhuma credencial deve ser colocada no frontend público.
+
+## Botão «Sincronizar com DSS» (Documentos / NFS-e)
+O botão fica sempre visível em **Documentos / NFS-e**, inclusive no site aberto sem login. O visitante só vê exemplos fictícios até solicitar sincronização e informar, na janela de autorização, **um token privado do backend**. O token é usado apenas na requisição HTTPS e **não** é armazenado no navegador. O serviço Render `https://faturamento-sq74.onrender.com` exige Bearer autorizado e acesso com permissão Financeiro; somente os documentos NFS-e passam ao modo de dados reais depois de uma resposta HTTP 200 válida.
+
+**Para habilitar a consulta** quando o Render usa autenticação legada por token: configure em **Environment** `PORTAL_ALLOW_LEGACY_TOKEN=true` e `PORTAL_ACCESS_TOKEN` com valor longo, aleatório e exclusivo. Se o servidor estiver no modo de contas individuais (`PORTAL_USERS_FILE`), a sessão pessoal autorizada substitui o token legado. Informe apenas o token do **portal**, nunca a senha DSS. `DSS_DOCUMENTOS_PATH`, `DSS_BASE_URL` e credenciais DSS ficam no Render. A sincronização real não ocorre sem autorização. A origem GitHub Pages é permitida por CORS, mas não ganha acesso sem Bearer válido.
+
+Ao alterar o intervalo de datas depois de uma sincronização, o sistema limpa os dados reais carregados anteriormente e solicita nova consulta. Nenhuma outra aba passa a usar valores reais automaticamente. Se o token estiver errado ou o DSS falhar, a tela mostra o motivo e não declara sincronização bem-sucedida.

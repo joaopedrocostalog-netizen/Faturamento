@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {normalizeElectronicDocuments,isoEmissionDate,summaryElectronicDocuments} from '../src/e-documents.mjs';
-import {renderElectronicDocuments,filteredElectronicDocuments,docsCsv} from '../src/e-documents-ui.mjs';
+import {renderElectronicDocuments,renderDocumentsSyncDialog,filteredElectronicDocuments,docsCsv} from '../src/e-documents-ui.mjs';
+import {fetchAuthorizedDocuments,FATURAMENTO_RENDER_API} from '../src/dss-sync.mjs';
 import {queryElectronicDocuments,DocumentQueryError} from '../api/e-documents.mjs';
 const sample={status:200,apiVersion:1,mensagemErro:'',qtd_registros:2,registros:[
 {id:0,parceiro:'Teste A',tipo_operacao:'Serviços',numero_nfse:'101',modelo:'NFS-e',status:'Emitida',data_emissao:'10/10/2026',valor_final:1300.25,total_iss:65.01,fatura:'F-001',ponto_apoio:'Santos'},
@@ -74,4 +75,38 @@ test('Endpoint HTTP permanece protegido e senha não aparece no bundle público'
  assert(client.includes("renderElectronicDocuments(state.docsRows,state)"));
  assert(client.includes("if(PUBLIC_DEMO||state.mode!=='live'||!state.token||!state.apiUrl)"));
  assert.equal(readFileSync('src/site-config.mjs','utf8').includes("export const API_BASE_URL = '';"),true);
+});
+
+test('Botão de sincronizar NFS-e e formulário de autorização em memória',()=>{
+ const html=renderElectronicDocuments(normalizeElectronicDocuments(sample),{mode:'demo',docsSource:'demo',docsLoading:false,docsError:'',from:'2026-10-01',to:'2026-10-20'});
+ assert(html.includes('data-action="docs-sync-open"'));
+ assert(html.includes('SINCRONIZAR COM DSS'));
+ assert(html.includes('DEMONSTRAÇÃO'));
+ const modal=renderDocumentsSyncDialog({from:'2026-10-01',to:'2026-10-20'});
+ assert(modal.includes('id="docsSyncForm"'));
+ assert(modal.includes('type="password"'));
+ assert(modal.includes('autocomplete="off"'));
+ assert(!modal.includes('Bearer '));
+ assert(!modal.includes('chave-teste-interna-123'));
+ assert.equal(FATURAMENTO_RENDER_API,'https://faturamento-sq74.onrender.com');
+});
+test('Sincronização DSS envia Bearer privado apenas na requisição autenticada',async()=>{
+ let calls=0;const token='token-privado-apenas-teste-001';
+ const docs=await fetchAuthorizedDocuments({token,from:'2026-10-01',to:'2026-10-20',fetchImpl:async(url,opts)=>{
+  calls++;
+  assert.equal(url,'https://faturamento-sq74.onrender.com/api/documentos-eletronicos?from=2026-10-01&to=2026-10-20');
+  assert.equal(opts.headers.Authorization,'Bearer '+token);
+  assert.equal(opts.credentials,'omit');assert.equal(opts.cache,'no-store');
+  return {status:200,ok:true,json:async()=>({registros:[{numeroNfse:'200',parceiro:'PARCEIRO EXEMPLO',valorFinal:75}]})};
+ }});
+ assert.equal(calls,1);assert.equal(docs[0].numeroNfse,'200');
+ const source=readFileSync('src/dss-sync.mjs','utf8');
+ assert(!source.includes(token));
+ assert(!source.includes('localStorage'));
+ assert(!source.includes('sessionStorage'));
+});
+test('Falhas de token e servidor não aparentam sincronização bem-sucedida',async()=>{
+ await assert.rejects(()=>fetchAuthorizedDocuments({token:'curto',from:'2026-10-01',to:'2026-10-20'}),/token privado/i);
+ await assert.rejects(()=>fetchAuthorizedDocuments({token:'token-comprido-teste',from:'2026-10-01',to:'2026-10-20',fetchImpl:async()=>({status:401,ok:false,json:async()=>({error:'Não autorizado'})})}),/Token não autorizado/);
+ await assert.rejects(()=>fetchAuthorizedDocuments({token:'token-comprido-teste',from:'2026-10-01',to:'2026-10-20',fetchImpl:async()=>({status:503,ok:false,json:async()=>({error:'DSS_DOCUMENTOS_PATH ausente'})})}),/DSS_DOCUMENTOS_PATH/);
 });

@@ -20,7 +20,8 @@ const useAccounts=configuredUsers();
 const allowLegacy=env.PORTAL_ALLOW_LEGACY_TOKEN==='true';
 const port=Number(env.PORT||3001);
 const base=env.DSS_BASE_URL||'';
-const origins=(env.PORTAL_ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean);
+// Origem do frontend público: CORS não concede acesso sem o token Bearer.
+const origins=[...new Set([...(env.PORTAL_ALLOWED_ORIGINS||'').split(',').map(s=>s.trim()).filter(Boolean),'https://joaopedrocostalog-netizen.github.io'])];
 const timeout=Math.min(38000,Math.max(1000,Number(env.DSS_TIMEOUT_MS||32000)));
 const cacheMaxAge=Math.min(3600000,Math.max(0,Number(env.API_CACHE_SECONDS??60)*1000));
 const CACHE=new Map(),CACHE_LIMIT=3; // Render Free: evitar manter dezenas de respostas DSS enormes em memória.
@@ -249,7 +250,7 @@ const staticFiles=new Map([
  ['/index.html','index.html'],
  ['/styles.css','styles.css'],
  ['/logo-costalog-sem-fundo-1024x876.png','logo-costalog-sem-fundo-1024x876.png'],
- ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs'].map(name=>['/src/'+name,'src/'+name])
+ ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs','dss-sync.mjs'].map(name=>['/src/'+name,'src/'+name])
 ]);
 async function serveLocalFrontend(req,res,url){
  if(req.method!=='GET'&&req.method!=='HEAD')return false;

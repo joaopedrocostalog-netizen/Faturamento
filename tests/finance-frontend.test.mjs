@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 test('Abre diretamente o faturamento sem formulário de login e com abas financeiras futuras ocultas',async()=>{
  const events={},root={innerHTML:'',addEventListener(k,f){events[k]=f;}},storage=new Map();
+ const syncToken={value:'autorizacao-temporaria-teste-2026',focus(){}};
  globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
  globalThis.window={location:{protocol:'https:',origin:'https://empresa.github.io',hostname:'empresa.github.io'}};
  globalThis.alert=()=>{};globalThis.confirm=()=>true;
- globalThis.document={getElementById:id=>id==='app'?root:null,addEventListener(){},visibilityState:'visible'};
+ globalThis.document={getElementById:id=>id==='app'?root:id==='docsSyncToken'?syncToken:null,addEventListener(){},visibilityState:'visible'};
  globalThis.fetch=async()=>{throw Error('O frontend público nunca deve buscar dados DSS protegidos');};
  await import('../src/app.js?finance-public=1');
  assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
@@ -39,6 +40,32 @@ test('Abre diretamente o faturamento sem formulário de login e com abas finance
  nav('painel');
  assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
  assert(!root.innerHTML.includes('data-nav="relatorios"'));
+ // Apenas uma ação explícita pode consultar NFS-e reais.
+ nav('documentos');
+ assert(root.innerHTML.includes('SINCRONIZAR COM DSS'));
+ const action=id=>events.click({target:{dataset:{},closest:q=>q==='[data-action]'?{dataset:{action:id}}:null}});
+ action('docs-sync-open');
+ assert(root.innerHTML.includes('id="docsSyncForm"'));
+ let count=0;
+ globalThis.fetch=async(url,options)=>{
+  count++;
+  assert(url.startsWith('https://faturamento-sq74.onrender.com/api/documentos-eletronicos?'));
+  assert.equal(options.headers.Authorization,'Bearer autorizacao-temporaria-teste-2026');
+  return {status:200,ok:true,json:async()=>({registros:[{id:'1',numeroNfse:'NFS-2026-900',parceiro:'PARCEIRO TESTE',dataEmissao:new Date().toISOString().slice(0,10),valorFinal:42}]})};
+ };
+ let prevented=false;
+ events.submit({target:{id:'docsSyncForm'},preventDefault(){prevented=true;}});
+ await new Promise(resolve=>setTimeout(resolve,0));
+ assert(prevented);assert.equal(count,1);
+ assert.equal(syncToken.value,'','O segredo precisa sair do formulário após o uso');
+ assert(root.innerHTML.includes('NFS-e SINCRONIZADAS COM DSS'));
+ assert(root.innerHTML.includes('PARCEIRO TESTE'));
+ assert(!root.innerHTML.includes('autorizacao-temporaria-teste-2026'));
+ assert(!storage.has('docsSyncToken'));
+ assert(!root.innerHTML.includes('data-nav="analises"'));
+ nav('painel');
+ assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
+ assert(root.innerHTML.includes('AMBIENTE DE DEMONSTRAÇÃO'));
 });
 test('A configuração publicada não aponta para backend privado',()=>{
  const cfg=readFileSync('src/site-config.mjs','utf8');
