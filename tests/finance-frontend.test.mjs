@@ -50,7 +50,9 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
  nav('faturamento');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
  nav('ctes');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
  nav('clientes');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
- nav('comparativos');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
+ nav('comparativos');assert(root.innerHTML.includes('COMPARATIVO INDEPENDENTE'));
+ assert(root.innerHTML.includes('CONSULTAR COMPARATIVO NO DSS'));
+ assert(!root.innerHTML.includes('DSS SINCRONIZADO'));
  nav('painel');assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
  assert(!storage.has('docsSyncToken'));
  // Alterar período invalida a cópia real de TODAS as abas.

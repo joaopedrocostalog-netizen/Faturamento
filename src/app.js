@@ -982,7 +982,7 @@ root.addEventListener('change',e=>{
  if(e.target.id==='from'){state.from=e.target.value>localToday()?localToday():e.target.value;if(state.from>state.to)state.to=state.from;state.page=1;invalidateSyncedDocuments();render();}
  if(e.target.id==='to'){state.to=e.target.value>localToday()?localToday():e.target.value;if(state.to<state.from)state.from=state.to;state.page=1;invalidateSyncedDocuments();render();}
  if(e.target.id==='compareCustom'){state.compareCustom=e.target.checked;state.comparison=null;state.comparisonError='';comparisonSeq++;render();return;}
- if(['compareCurrentFrom','compareCurrentTo','comparePreviousFrom','comparePreviousTo'].includes(e.target.id)){state[e.target.id]=e.target.value;state.compareCustom=true;state.comparison=null;state.comparisonError='';comparisonSeq++;render();return;}
+ if(['compareCurrentFrom','compareCurrentTo','comparePreviousFrom','comparePreviousTo'].includes(e.target.id)){state[e.target.id]=e.target.value;state.compareCustom=true;state.comparison=null;state.comparisonError='';state.comparisonLoading=false;comparisonSeq++;render();return;}
  if(e.target.id==='compareAnchorInput'){
   state.compareAnchor=e.target.value;state.comparison=null;state.comparisonError='';comparisonSeq++;render();return;
  }
