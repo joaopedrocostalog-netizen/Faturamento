@@ -161,6 +161,13 @@ function legacyAuthorized(req){
  return a.length===b.length&&timingSafeEqual(a,b);
 }
 function bearer(req){return (req.headers.authorization||'').replace(/^Bearer\s+/i,'');}
+/** Token exclusivo NFS-e, sem privilégios administrativos nem acesso a outros endpoints. */
+function docsSyncAuthorized(req){
+ const secret=String(env.DSS_NFSE_SYNC_TOKEN||'');
+ if(secret.length<32)return false;
+ const expected=Buffer.from(secret,'utf8'),provided=Buffer.from(bearer(req),'utf8');
+ return expected.length===provided.length&&timingSafeEqual(expected,provided);
+}
 function identify(req){
  if(useAccounts)return authenticate(bearer(req));
  if(allowLegacy&&legacyAuthorized(req))return {username:'legado-admin',displayName:'Administrador',role:'administrador',permissions:permissionsFor('administrador')};
@@ -349,9 +356,9 @@ const server=http.createServer(async(req,res)=>{
  }
  // Rota NFS-e: nunca devolver documentos para visitantes ou sem perfil financeiro.
  if(url.pathname==='/api/documentos-eletronicos'){
-  if(!user)return reply(res,401,{error:'Autorização necessária no backend.'},origin);
-  if(!user.permissions?.financeiro)return reply(res,403,{error:'Permissão Financeiro necessária.'},origin);
-  if(user.mustChangePassword)return reply(res,403,{error:'Altere a senha provisória antes de consultar o DSS.'},origin);
+  const allowedBySession=!!(user?.permissions?.financeiro&&!user.mustChangePassword);
+  if(!allowedBySession&&!docsSyncAuthorized(req))
+   return reply(res,401,{error:'Token exclusivo NFS-e não autorizado. Confira DSS_NFSE_SYNC_TOKEN no Render.'},origin);
   if(!allowedRate(req))return reply(res,429,{error:'Limite de consultas atingido.'},origin);
   const from=url.searchParams.get('from')||'',to=url.searchParams.get('to')||'';
   try{

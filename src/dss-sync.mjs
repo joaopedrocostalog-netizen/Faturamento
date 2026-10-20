@@ -17,7 +17,7 @@ export async function fetchAuthorizedDocuments({token,from,to,fetchImpl=fetch,ap
  }
  let payload;
  try{payload=await response.json();}catch{throw Error('O Render retornou uma resposta inválida.');}
- if(response.status===401)throw Error('Token não autorizado no Render. Confira PORTAL_ACCESS_TOKEN e PORTAL_ALLOW_LEGACY_TOKEN.');
+ if(response.status===401)throw Error('Token não autorizado no Render. Confira DSS_NFSE_SYNC_TOKEN em Environment.');
  if(response.status===403)throw Error(String(payload.error||'Sem permissão para consultar documentos DSS.'));
  if(!response.ok)throw Error(String(payload.error||'Falha no Render (HTTP '+response.status+').').slice(0,230));
  if(!payload||!Array.isArray(payload.registros))throw Error('O Render não retornou registros de documentos válidos.');

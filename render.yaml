@@ -23,6 +23,9 @@ services:
         sync: false
       - key: DSS_PASSWORD
         sync: false
+      # Segredo independente e com escopo somente para sincronizar documentos fiscais.
+      - key: DSS_NFSE_SYNC_TOKEN
+        sync: false
       - key: DSS_TIMEOUT_MS
         value: "25000"
       - key: DSS_DOCUMENTOS_MAX_REGISTROS

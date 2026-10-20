@@ -21,8 +21,8 @@ Respostas: 200 (lista), 400 (validação), 401 (credenciais), 403 (módulo `tms_
    - `DSS_AUTH_TYPE=basic` se o DSS usa Basic Auth.
    - `DSS_USERNAME`: usuário DSS autorizado.
    - `DSS_PASSWORD`: senha DSS (marcar como Secret).
-   - `PORTAL_ALLOW_LEGACY_TOKEN=true`
-   - `PORTAL_ACCESS_TOKEN`: token **longo, aleatório e privado**, diferente da senha DSS.
+   - `DSS_NFSE_SYNC_TOKEN definido no servidor privado`
+   - `DSS_NFSE_SYNC_TOKEN`: token **longo, aleatório e privado**, diferente da senha DSS.
    - `PORTAL_ALLOWED_ORIGINS`: manter vazio até haver frontend com autenticação corporativa.
 3. Faça o deploy. Abra `https://SEU-SERVICO.onrender.com/api/health`. `status: "ok"` indica servidor no ar, **não comprova acesso ao DSS**.
 4. Faça uma consulta privada num cliente HTTP (Postman/Insomnia) configurando `Authorization: Bearer SEU_TOKEN_PRIVADO` e solicitando `GET https://SEU-SERVICO.onrender.com/api/documentos-eletronicos?from=2026-10-01&to=2026-10-20`.
@@ -42,3 +42,6 @@ A nova rota não exige MariaDB: consulta o DSS sob demanda e devolve os document
 - [ ] Criar serviço no Render e preencher segredos privados
 - [ ] Testar `/api/health` e depois uma consulta autenticada
 - [ ] Definir acesso seguro antes de disponibilizar dados reais no frontend
+
+### Token de sincronização com privilégios mínimos
+O botão do site utiliza `DSS_NFSE_SYNC_TOKEN` (segredo separado de `PORTAL_ACCESS_TOKEN`). Esse Bearer concede acesso **somente** ao endpoint de documentos eletrônicos, após validação no Node.js. Cadastre uma sequência aleatória de no mínimo 32 caracteres na aba **Environment** do Render; informe no formulário somente quando for sincronizar.
