@@ -1,6 +1,7 @@
 /** Indicadores gerenciais calculados exclusivamente dos campos conhecidos da API DSS.
  * Nenhuma métrica aqui é lucro, recebimento, inadimplência ou status fiscal validado.
  */
+import {receivablesSummary} from './receivables.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const money=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:2}).format(v):'—';
 const n=v=>new Intl.NumberFormat('pt-BR').format(v);
@@ -55,6 +56,7 @@ function trend(records){
 }
 export function renderManagerialDashboard(documents,orders=[],state={}){
  const s=managerialMetrics(documents,orders),live=state.docsSource==='live';
+ const receivable=state.recvSource==='live'?receivablesSummary(state.recvRows||[]):null;
  const source=live?'Dados consultados no DSS':'Demonstração: valores e parceiros fictícios';
  const missing=[
   ['Sem número NFS-e',s.semNfse,'Verificar preenchimento, não concluir ausência de emissão'],
@@ -70,6 +72,8 @@ export function renderManagerialDashboard(documents,orders=[],state={}){
  kpi('TICKET MÉDIO',money(s.ticket),'Apenas registros com valor final conhecido')+
  kpi('COM NFS-e',n(s.withNfse),'Referência preenchida')+
  kpi('COM FATURA',n(s.withFatura),'Não significa valor recebido')+
+ (receivable?kpi('SALDO RESIDUAL A RECEBER',receivable.residualKnown?money(receivable.residual):'—','DSS Contas a Receber; '+n(receivable.residualKnown)+' saldos conhecidos'):'')+
+ (receivable?kpi('PARCELAS VENCIDAS COM SALDO',n(receivable.lateCount),'Vencimento passado e valor residual positivo'):'')+
  '</div>'+
  '<div class="mgmt-chart-grid">'+trend(s.meses)+chart('Valor por tipo de operação','Soma do valor_final informado',s.operacoes)+
  chart('Principais parceiros','Valor final de documentos por parceiro',s.parceiros)+
@@ -79,5 +83,6 @@ export function renderManagerialDashboard(documents,orders=[],state={}){
  '<section class="mgmt-alerts"><h3>CONFERÊNCIAS SUGERIDAS</h3><p>Essas sinalizações indicam campos ausentes nos registros consultados, não irregularidades comprovadas.</p>'+
  '<div class="mgmt-alert-grid">'+missing.map(([label,count,note])=>'<article><strong>'+n(count)+'</strong><span>'+esc(label)+'</span><small>'+esc(note)+'</small></article>').join('')+'</div></section>'+
  '<section class="mgmt-fields"><h3>COBERTURA DOS CAMPOS DA API</h3><p>11 campos de documento: ID, parceiro, tipo de operação, número NFS-e, modelo, status, data de emissão, valor final, total de ISS, fatura e ponto de apoio. Todos são utilizados na visão gerencial ou na aba Documentos / NFS-e.</p></section>'+
+ '<div class="v-bottom-actions"><button class="btn btn-red" data-nav="receber">DETALHAR CONTAS A RECEBER →</button></div>'+
  '<p class="ins-hint">Não somar automaticamente valor final de NFS-e ao frete de pedidos: as fontes podem representar a mesma operação. Pagamento, lucro, vencimento, inadimplência e validação fiscal exigem outras fontes.</p></section>';
 }

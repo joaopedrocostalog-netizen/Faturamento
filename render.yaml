@@ -17,6 +17,9 @@ services:
       # Cole a rota EXATA exibida no Swagger. Não é possível deduzi-la só do esquema JSON.
       - key: DSS_DOCUMENTOS_PATH
         sync: false
+      # Rota fornecida pelo Swagger "Parcelas a receber no período".
+      - key: DSS_RECEIVABLES_PATH
+        sync: false
       - key: DSS_AUTH_TYPE
         value: basic
       - key: DSS_USERNAME

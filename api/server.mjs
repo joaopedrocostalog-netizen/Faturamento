@@ -10,6 +10,7 @@ import {fileURLToPath} from 'node:url';
 import {timingSafeEqual} from 'node:crypto';
 import {gzip} from 'node:zlib';
 import {queryElectronicDocuments,DocumentQueryError} from './e-documents.mjs';
+import {queryReceivables,ReceivablesQueryError} from './receivables.mjs';
 import {configuredUsers,login,authenticate,logout,listAccounts,createAccount,updateAccount,changeOwnPassword,AccountError} from './auth.mjs';
 import {projectOverview,permissionsFor} from './access.mjs';
 import {monthWindows,mergeDssRows} from './dss-periods.mjs';
@@ -257,7 +258,7 @@ const staticFiles=new Map([
  ['/index.html','index.html'],
  ['/styles.css','styles.css'],
  ['/logo-costalog-sem-fundo-1024x876.png','logo-costalog-sem-fundo-1024x876.png'],
- ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs','dss-sync.mjs','managerial-ui.mjs'].map(name=>['/src/'+name,'src/'+name])
+ ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs','dss-sync.mjs','managerial-ui.mjs','receivables.mjs','receivables-ui.mjs'].map(name=>['/src/'+name,'src/'+name])
 ]);
 async function serveLocalFrontend(req,res,url){
  if(req.method!=='GET'&&req.method!=='HEAD')return false;
@@ -353,6 +354,22 @@ const server=http.createServer(async(req,res)=>{
   if(user.mustChangePassword)return reply(res,403,{error:'Altere a senha provisória.'},origin);
   if(!user.permissions.admin)return reply(res,403,{error:'Somente administradores podem consultar diagnósticos.'},origin);
   return reply(res,200,{status:'ok',configured:!!(base&&dssCredentialsReady()),lastSuccess:apiStats.lastSuccess,lastFailure:apiStats.lastFailure,counters:{...apiStats},cacheEntries:CACHE.size,cacheSeconds:cacheMaxAge/1000,periodStoreEnabled:periodStore.enabled,periodStoreType:env.MARIADB_ENABLED==='true'?'mariadb':env.DSS_PERIOD_CACHE_DIR?'file':'disabled'},origin);
+ }
+ // Parcelas a receber: mesmas permissões de consulta e token exclusivo, sem acesso público anônimo.
+ if(url.pathname==='/api/receivables'){
+  const allowedBySession=!!(user?.permissions?.financeiro&&!user.mustChangePassword);
+  if(!allowedBySession&&!docsSyncAuthorized(req))return reply(res,401,{error:'Autorização necessária para Contas a Receber.'},origin);
+  if(!allowedRate(req))return reply(res,429,{error:'Limite de consultas atingido.'},origin);
+  const from=url.searchParams.get('from')||'',to=url.searchParams.get('to')||'';
+  const tipoRef=url.searchParams.get('tipo_ref')||'E';
+  try{
+   const data=await queryReceivables({env,from,to,tipoRef});
+   return reply(res,200,data,origin,req.headers['accept-encoding']||'');
+  }catch(e){
+   const status=e instanceof ReceivablesQueryError?e.status:502;
+   console.warn('[DSS] contas a receber:',status,e?.name||'Error');
+   return reply(res,status,{error:e instanceof ReceivablesQueryError?e.message:'Erro ao consultar Contas a Receber no DSS.'},origin);
+  }
  }
  // Rota NFS-e: nunca devolver documentos para visitantes ou sem perfil financeiro.
  if(url.pathname==='/api/documentos-eletronicos'){

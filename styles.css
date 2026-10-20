@@ -496,3 +496,18 @@ body{background:#08090b;color:#f6f7f8}
 .mgmt-alert-grid small{font-size:10px;color:#a5a6b0}
 @media(max-width:870px){.mgmt-chart-grid{grid-template-columns:1fr}.mgmt-alert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.mgmt-alert-grid{grid-template-columns:1fr}}
+
+/* Contas a Receber — interface acessível, tabelas paginadas e gráficos leves */
+.recv-toolbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:13px 0 18px}
+.recv-toolbar label{display:grid;gap:5px;font-size:11px;font-weight:700;color:#b7b9c2;min-width:120px}
+.recv-toolbar .btn{min-height:38px}
+.recv-toolbar select{min-width:125px}
+.recv-table{margin-top:16px;overflow-x:auto}
+.recv-table table{min-width:1220px}
+.recv-details summary{cursor:pointer;white-space:nowrap;color:#ff526a}
+.recv-details[open]{position:relative}
+.recv-details-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:430px;max-width:620px;padding:13px;margin:8px 0;background:#202228;border:1px solid #383a42;border-radius:9px}
+.recv-details-grid>div{display:grid;gap:4px;overflow-wrap:anywhere}
+.recv-details-grid b{color:#bbc0ce;font-size:10px}
+.recv-details-grid span{font-size:11px;color:#fff}
+@media(max-width:780px){.recv-toolbar>*{flex:1 1 100%}.recv-toolbar label{width:100%}.recv-details-grid{grid-template-columns:1fr;min-width:270px}}

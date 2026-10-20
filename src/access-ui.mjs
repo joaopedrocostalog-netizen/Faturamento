@@ -5,7 +5,7 @@
  */
 export const SHOW_FINANCE_ONLY_TABS = false;
 export const HIDDEN_FINANCE_VIEWS = ['analises','relatorios'];
-export const FIN_VIEWS=['painel','faturamento','documentos','ctes','clientes','gerencial','analises','comparativos','relatorios'];
+export const FIN_VIEWS=['painel','faturamento','documentos','ctes','clientes','gerencial','receber','analises','comparativos','relatorios'];
 export const VISIBLE_VIEWS=SHOW_FINANCE_ONLY_TABS?FIN_VIEWS:FIN_VIEWS.filter(view=>!HIDDEN_FINANCE_VIEWS.includes(view));
 export function permittedView(role,view){return ['financeiro','administrador'].includes(role)&&VISIBLE_VIEWS.includes(view);}
 export function reportTypesFor(role){return ['financeiro','administrador'].includes(role)?['pedidos','ctes','clientes']:[];}

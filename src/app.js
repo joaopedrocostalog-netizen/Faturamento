@@ -10,9 +10,11 @@ import {renderAdvanced,operationalFilters,renderInsightsStrip,renderReportHub,re
 import {normalizeOverview,costByClient} from './dss-mapping.mjs';
 import {renderFinanceDashboard,renderFinanceComparison,renderComparisonSyncDialog} from './financial-ui.mjs';
 import {renderManagerialDashboard} from './managerial-ui.mjs';
+import {normalizeReceivables} from './receivables.mjs';
+import {renderReceivables,renderReceivablesTokenDialog} from './receivables-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
-import {fetchAuthorizedDocuments,fetchAuthorizedOverview} from './dss-sync.mjs';
+import {fetchAuthorizedDocuments,fetchAuthorizedOverview,fetchAuthorizedReceivables} from './dss-sync.mjs';
 /* COSTALOG | Viagens e Fretes. Sem credenciais no frontend. */
 const root = document.getElementById('app');
 const fmtBRL = new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL',maximumFractionDigits:0});
@@ -134,7 +136,14 @@ async function demoChangeOwnPassword(currentPassword,newPassword){
 const state = {
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
- docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
+ docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,
+ recvRows:normalizeReceivables({status:200,registros:[
+ {empresa:'EXEMPLO',dataEmissao:'2026-10-01',parceiro:'PARCEIRO FICTÍCIO A',parcela:'1/2',fatura:'DEMO-001',
+ situacaoFatura:'EM ABERTO',dataVencimento:'2026-10-28',valor:1500,valorPagamento:0,valorResidual:1500,tipoFatura:'Transporte'},
+ {empresa:'EXEMPLO',dataEmissao:'2026-10-02',parceiro:'PARCEIRO FICTÍCIO B',parcela:'1/1',fatura:'DEMO-002',
+ situacaoFatura:'PAGA',dataVencimento:'2026-10-12',dataPagamento:'2026-10-10',valor:850,valorPagamento:850,valorResidual:0,tipoFatura:'Armazenagem'}
+ ]}),recvSource:'demo',recvError:'',recvLoading:false,recvDialogOpen:false,recvRef:'E',
+ recvStatus:'',recvSortKey:'valor',recvSortDir:'desc',recvPage:1,recvSearch:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
@@ -212,21 +221,24 @@ function totals(data){
 }
 // As abas de Análises financeiras e Relatórios financeiros permanecem definidas
 // aqui para uso futuro, mas são filtradas por VISIBLE_VIEWS em access-ui.mjs.
-const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['documentos','doc','Documentos / NFS-e'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['gerencial','chart','Visão Gerencial'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
+const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['documentos','doc','Documentos / NFS-e'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['gerencial','chart','Visão Gerencial'],['receber','doc','Contas a Receber'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
 const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],['entregas','Entregas'],['pendencias','Pendências'],['rotas','Rotas'],['veiculos','Frota'],['motoristas','Motoristas'],['ocorrencias','Ocorrências'],['mdfes','MDF-e'],['relatorios','Relatórios'],['faturamento','Faturamento'],['clientes','Clientes'],['analises','Análises financeiras'],['administracao','Administração'],['integracoes','Integração']];
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
  state.view=safeView(state.role,state.view);
  const docsLive=state.mode==='live'&&state.docsSource==='live';
+ const recvLive=state.view==='receber'&&state.recvSource==='live';
  // Os totais operacionais profundos eram calculados até em tabelas que não os utilizam.
  const d=scoped(),stats=['viagens','mdfes'].includes(state.view)?totals(d):null;
  const allowed=navItems.filter(x=>x[0]!=='integracoes'&&permittedView(state.role,x[0]));
- const PRIMARY=['painel','faturamento','documentos','ctes','clientes','gerencial','analises','comparativos','relatorios'];
+ const PRIMARY=['painel','faturamento','documentos','ctes','clientes','gerencial','receber','analises','comparativos','relatorios'];
  const secondary=allowed.filter(x=>!PRIMARY.includes(x[0]));
  const tab=(x,cl)=>'<button type="button" class="'+cl+' '+(state.view===x[0]?'active':'')+'" data-nav="'+x[0]+'" aria-current="'+(state.view===x[0]?'page':'false')+'">'+icon(x[1])+'<span>'+esc(x[2])+'</span></button>';
  const primary=allowed.filter(x=>PRIMARY.includes(x[0])).map(x=>tab(x,'v-nav-item')).join('');
  const sub=secondary.map(x=>tab(x,'v-sub-item')).join('');
- const message=state.view==='comparativos'
+ const message=state.view==='receber'
+  ?'<div class="info-strip '+(recvLive?'live':'')+'"><strong>CONTAS A RECEBER:</strong> '+(recvLive?'Parcelas reais consultadas no DSS.':'Consulte o DSS com token privado para obter parcelas reais.')+'</div>'
+  :state.view==='comparativos'
   ?'<div class="info-strip '+(state.comparison?.source==='DSS'?'live':'')+'"><strong>COMPARATIVO INDEPENDENTE</strong> · As datas A e B e a consulta ao DSS desta aba são separadas da sincronização geral do site.</div>'
   :state.mode==='live'
   ?'<div class="info-strip live"><strong>DSS SINCRONIZADO</strong> · Painel, Faturamento, NFS-e, Pedidos e Clientes usam o período '+esc(state.loadedRange?.from||state.from)+' a '+esc(state.loadedRange?.to||state.to)+' · '+esc(state.docsUpdatedAt||'')+'.</div>'
@@ -239,7 +251,7 @@ function render(){
  const globalSearch='';
  root.innerHTML='<div class="layout v-app"><main class="main v-main">'+
  '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="./logo-costalog-sem-fundo-1024x876.png" alt="Logotipo COSTALOG"><div><b>COSTALOG</b><small>A LOGÍSTICA IDEAL</small></div><i></i><strong>GESTÃO DE FATURAMENTO</strong></div>'+
- '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'||docsLive?'connected':'')+'">'+(docsLive?'● DSS NFS-e':state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
+ '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'||docsLive||recvLive?'connected':'')+'">'+(recvLive?'● DSS RECEBÍVEIS':docsLive?'● DSS NFS-e':state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
  '<span class="v-username">ACESSO LIVRE</span></div></header>'+
  '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(state.mode==='live'?'DADOS DSS':'DADOS DE TESTE')+'</div></div>'+
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
@@ -251,7 +263,8 @@ function render(){
  '<footer class="v-footer">COSTALOG • Portal de faturamento • '+(docsLive?'NFS-e: registros DSS consultados com token privado • Demais abas: demonstração.':PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
  (state.selected?renderDrawer(d):'')+
  (state.docsSyncOpen?renderDocumentsSyncDialog(state):'')+
- (state.comparisonSyncOpen?renderComparisonSyncDialog(state):'');
+ (state.comparisonSyncOpen?renderComparisonSyncDialog(state):'')+
+ (state.recvDialogOpen?renderReceivablesTokenDialog(state):'');
 }
 function renderFilters(){
  if(state.view==='integracoes')return '';
@@ -286,6 +299,7 @@ function renderView(d,s){
  if(state.view==='comparativos')return renderFinanceComparison(d,state);
  if(state.view==='documentos')return renderElectronicDocuments(state.docsRows,state);
  if(state.view==='gerencial')return renderManagerialDashboard(state.docsRows,d.pedidos,state);
+ if(state.view==='receber')return renderReceivables(state.recvRows,state);
  if(state.view==='graficos')return renderCharts(d,{financeiro:state.permissions.financeiro,interval:state.chartInterval});
  if(state.view==='viagens')return renderTripsHeader(d)+renderViagens(d,s);
  if(state.view==='ctes')return renderCtes(d);
@@ -728,6 +742,7 @@ function invalidateSyncedDocuments(){
   state.lastSync=null;state.prevDataset=null;
  }
  state.docsLoading=false;state.syncProgress='';state.syncError='';state.docsError='';state.page=1;state.docsPage=1;
+ if(state.recvSource!=='demo'){state.recvRows=[];state.recvSource='pending';state.recvError='';state.recvPage=1;}
  scopedCache=null;
 }
 function mergeOverviewResponses(responses){
@@ -754,14 +769,21 @@ async function synchronizeElectronicDocuments(token){
       if(button)button.textContent=state.syncProgress;}
    }
   };
-  const [rows]=await Promise.all([
+  const [rows,,receivables]=await Promise.all([
    fetchAuthorizedDocuments({token,from,to}),
-   Promise.all(Array.from({length:Math.min(2,windows.length)},worker))
+   Promise.all(Array.from({length:Math.min(2,windows.length)},worker)),
+   fetchAuthorizedReceivables({token,from,to,tipoRef:'E'})
+    .then(records=>({ok:true,records}))
+    .catch(error=>({ok:false,message:String(error?.message||'Consulta indisponível').slice(0,230)}))
   ]);
   if(epoch!==documentsSyncEpoch||from!==state.from||to!==state.to)return;
   const normalized=mergeOverviewResponses(results);
   // Commit atômico: não misturar dados de fontes e períodos diferentes.
   state.dataset=normalized;state.docsRows=rows;state.mode='live';state.docsSource='live';
+  state.recvRef='E';state.recvRows=receivables.ok?receivables.records:[];
+  state.recvSource=receivables.ok?'live':'unavailable';
+  state.recvError=receivables.ok?'':'Contas a Receber não sincronizado: '+receivables.message;
+  state.recvPage=1;
   state.loadedRange={from,to};state.docsUpdatedAt=new Date().toLocaleString('pt-BR');
   state.lastSync=new Date().toISOString();state.prevDataset=null;
   state.page=1;state.docsPage=1;scopedCache=null;
@@ -771,6 +793,25 @@ async function synchronizeElectronicDocuments(token){
   state.syncError=msg;state.docsError=msg;
  }finally{
   if(epoch===documentsSyncEpoch){state.docsLoading=false;state.syncProgress='';render();}
+ }
+}
+
+let receivablesEpoch=0;
+/** Atualiza apenas a aba de Contas a Receber, sem alterar a sincronização global. */
+async function consultReceivables(token){
+ const epoch=++receivablesEpoch,from=state.from,to=state.to,tipoRef=state.recvRef;
+ state.recvDialogOpen=false;state.recvLoading=true;state.recvError='';render();
+ try{
+  const rows=await fetchAuthorizedReceivables({token,from,to,tipoRef});
+  if(epoch!==receivablesEpoch||from!==state.from||to!==state.to||tipoRef!==state.recvRef)return;
+  state.recvRows=rows;state.recvSource='live';state.recvPage=1;
+ }catch(error){
+  if(epoch===receivablesEpoch){
+   state.recvError=String(error?.message||'Consulta indisponível').slice(0,230);
+   state.recvSource='unavailable';state.recvRows=[];
+  }
+ }finally{
+  if(epoch===receivablesEpoch){state.recvLoading=false;render();}
  }
 }
 function exportAdvanced(type,format){
@@ -924,6 +965,12 @@ root.addEventListener('click',e=>{
  }
  if(action==='docs-sync-open'&&!state.docsLoading){state.docsSyncOpen=true;render();document.getElementById('docsSyncToken')?.focus();}
  if(action==='docs-sync-cancel'){state.docsSyncOpen=false;render();}
+ if(action==='recv-consult'&&!state.recvLoading){state.recvDialogOpen=true;render();document.getElementById('receivablesSyncToken')?.focus();}
+ if(action==='recv-cancel'){state.recvDialogOpen=false;render();}
+ if(action==='recv-cancel-overlay'&&e.target===act){state.recvDialogOpen=false;render();}
+ if(action==='recv-prev'&&state.recvPage>1){state.recvPage--;render();}
+ if(action==='recv-next'){state.recvPage++;render();}
+ if(action==='recv-clear'){state.recvStatus='';state.recvSearch='';state.recvSortKey='valor';state.recvSortDir='desc';state.recvPage=1;render();}
  if(action==='toggle-advanced-filters'){state.extraFiltersOpen=!state.extraFiltersOpen;render();return;}
  if(action==='customer-detail-prev'&&state.clientDetailPage>1){state.clientDetailPage--;render();return;}
  if(action==='customer-detail-next'){state.clientDetailPage++;render();return;}
@@ -959,6 +1006,13 @@ root.addEventListener('click',e=>{
  // Não há sessão para encerrar nem credenciais para validar.
 });
 root.addEventListener('submit',e=>{
+ if(e.target?.id==='receivablesSyncForm'){
+  e.preventDefault();
+  const input=document.getElementById('receivablesSyncToken'),token=input?.value||'';
+  if(input)input.value='';
+  consultReceivables(token);
+  return;
+ }
  if(e.target?.id==='comparisonSyncForm'){
   e.preventDefault();
   const input=document.getElementById('comparisonSyncToken'),token=input?.value||'';
@@ -1013,6 +1067,13 @@ root.addEventListener('change',e=>{
  if(e.target.id==='docsSortDir'){state.docsSortDir=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='docsStatus'){state.docsStatus=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='docsModel'){state.docsModel=e.target.value;state.docsPage=1;render();}
+ if(e.target.id==='recvRef'){
+  state.recvRef=e.target.value;state.recvRows=[];state.recvSource='pending';
+  state.recvStatus='';state.recvError='';state.recvPage=1;render();return;
+ }
+ if(e.target.id==='recvStatus'){state.recvStatus=e.target.value;state.recvPage=1;render();return;}
+ if(e.target.id==='recvSortKey'){state.recvSortKey=e.target.value;state.recvPage=1;render();return;}
+ if(e.target.id==='recvSortDir'){state.recvSortDir=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='docsOperation'){state.docsOperation=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='docsSupport'){state.docsSupport=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='autoRefresh'){state.autoRefresh=0;activateRefresh();render();}
@@ -1048,6 +1109,10 @@ root.addEventListener('input',e=>{
   if(input){input.focus();if(typeof input.setSelectionRange==='function'&&typeof cursor==='number')input.setSelectionRange(cursor,cursor);}
   return;
  }
+ if(e.target.id==='recvSearchInput'){
+  state.recvSearch=e.target.value;state.recvPage=1;clearTimeout(searchRenderTimer);
+  searchRenderTimer=setTimeout(()=>{searchRenderTimer=null;render();document.getElementById('recvSearchInput')?.focus();},180);return;
+ }
  if(e.target.id==='searchInput'){
   state.search=e.target.value;state.page=1;state.docsPage=1;
   // Debounce: não reconstruir toda a tabela em cada tecla digitada.
@@ -1059,7 +1124,7 @@ root.addEventListener('keydown',e=>{
  const point=e.target?.closest?.('[data-chart-point]');
  if(point&&(e.key==='Enter'||e.key===' ')){e.preventDefault();activateChartPoint(point);}
 });
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state.selected||state.connect||state.docsSyncOpen||state.comparisonSyncOpen)){state.selected=null;state.connect=false;state.docsSyncOpen=false;state.comparisonSyncOpen=false;render();}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(state.selected||state.connect||state.docsSyncOpen||state.comparisonSyncOpen||state.recvDialogOpen)){state.selected=null;state.connect=false;state.docsSyncOpen=false;state.comparisonSyncOpen=false;state.recvDialogOpen=false;render();}});
 loadMetricPreferences();
 render();
 // Nenhuma consulta automática ao abrir o portal.
