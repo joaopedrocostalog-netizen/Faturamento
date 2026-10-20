@@ -80,7 +80,8 @@ export function renderAdvanced(view,d,s){
    rowTable('Central de pendências',searchRecords(i.alerts.filter(x=>s.alertPriority==='todos'||!s.alertPriority||x.level===s.alertPriority),s.search),alertCols,s,'pendencias','DSS · somente leitura');
  }
  if(view==='entregas'){
-  const rows=searchRecords(d.pedidos||[],s.search).filter(x=>(!s.customer||x.cliente===s.customer)&&(!s.vehicle||x.placa===s.vehicle));
+  // d.pedidos já recebeu filtros de cliente/placa em scoped(); manter a referência habilita cache.
+  const rows=searchRecords(d.pedidos||[],s.search);
   const cols=[{key:'pedidoNumero',label:'Pedido'},{key:'cteNumero',label:'CT-e'},{key:'data',label:'Emissão',format:'date'},{key:'cliente',label:'Cliente'},{key:'motoristaNome',label:'Motorista'},{key:'placa',label:'Placa'},{key:'entregaConcluida',label:'Entrega concluída',format:'bool'},{key:'comprovanteEntrega',label:'Comprovante',format:'bool'},{key:'ocorrencia',label:'Ocorrência'},{key:'status',label:'Situação'}];
   return '<div class="kpis">'+tt('PEDIDOS',num(rows.length))+tt('ENTREGAS CONCLUÍDAS',num(rows.filter(x=>x.entregaConcluida===true).length))+tt('SEM COMPROVANTE',num(rows.filter(x=>x.entregaConcluida===true&&x.comprovanteEntrega===false).length))+'</div>'+
    rowTable('Acompanhamento de entregas',rows,cols,s,'entregas','Indicadores operacionais, sem dados de faturamento.');

@@ -16,20 +16,39 @@ export function groupRows(rows,keyFn){
  rows.forEach(v=>{const key=String(keyFn(v)||'Não informado').trim()||'Não informado';const arr=map.get(key)||[];arr.push(v);map.set(key,arr);});
  return [...map].map(([name,items])=>({name,items,count:items.length}));
 }
+// Cache temporário vinculado à identidade do conjunto; mudanças de página não reordenam o ano inteiro.
+const sortCache=new WeakMap();
 export function sortRecords(rows,key='data',dir='desc'){
+ if(!Array.isArray(rows)||!rows.length)return [];
+ let cached=sortCache.get(rows);
+ if(!cached){cached=new Map();sortCache.set(rows,cached);}
+ const cacheKey=key+'|'+dir;
+ if(cached.has(cacheKey))return cached.get(cacheKey);
  const flip=dir==='asc'?1:-1;
- return [...rows].sort((a,b)=>{
+ const result=[...rows].sort((a,b)=>{
   const x=a[key],y=b[key];
-  if(x===null||x===undefined||x==='')return 1;
+  if(x===null||x===undefined||x==='')return y===null||y===undefined||y===''?0:1;
   if(y===null||y===undefined||y==='')return -1;
   if(typeof x==='number'&&typeof y==='number')return flip*(x-y);
   return flip*String(x).localeCompare(String(y),'pt-BR',{numeric:true,sensitivity:'base'});
  });
+ // Evita crescimento sem limite quando o usuário testa diversas colunas.
+ if(cached.size>=8)cached.clear();
+ cached.set(cacheKey,result);
+ return result;
 }
+const searchCache=new WeakMap();
 export function searchRecords(rows,term,fields){
  const q=lc(String(term||'').trim());
  if(!q)return rows;
- return rows.filter(r=>(fields||Object.keys(r)).some(k=>lc(r[k]).includes(q)));
+ let cache=searchCache.get(rows);
+ if(!cache){cache=new Map();searchCache.set(rows,cache);}
+ const key=q+'|'+(fields?fields.join(','):'*');
+ if(cache.has(key))return cache.get(key);
+ const result=rows.filter(r=>(fields||Object.keys(r)).some(k=>lc(r[k]).includes(q)));
+ if(cache.size>=6)cache.clear();
+ cache.set(key,result);
+ return result;
 }
 export function monthsOverview(viagens,pedidos,year){
  const start=Number(year);
@@ -41,6 +60,8 @@ export function monthsOverview(viagens,pedidos,year){
  });
 }
 export function makeAlerts(data,{asOf=new Date().toISOString().slice(0,10),lateDays=2}={}){
+ // Pré-indexação elimina a busca O(RVs × pedidos) em consultas anuais.
+ const linkedTripIds=new Set((data.pedidos||[]).map(p=>p.viagemId).filter(Boolean));
  const trips=data.viagens||[],orders=data.pedidos||[];
  const alerts=[];
  const push=(type,level,recordId,title,detail,view,refDate)=>alerts.push({type,level,recordId,title,detail,view,refDate});
@@ -55,7 +76,7 @@ export function makeAlerts(data,{asOf=new Date().toISOString().slice(0,10),lateD
  }
  for(const v of trips){
   // Não concluir que a viagem não tem pedido: ele pode ter sido emitido fora das datas consultadas.
-  if(data.sources?.pedidos===true&&!orders.some(p=>p.viagemId===v.id)){
+  if(data.sources?.pedidos===true&&!linkedTripIds.has(v.id)){
    push('rv_sem_pedido','info',v.id,'RV sem pedido PF localizado','RV '+v.numero+' • confira também outros períodos de emissão','viagens',v.data);
   }
   const status=realStatus(v),complete=/encerr|conclu|finaliz|entreg/.test(status);
@@ -70,7 +91,19 @@ export function makeAlerts(data,{asOf=new Date().toISOString().slice(0,10),lateD
  }
  return sortRecords(alerts,'refDate','desc');
 }
+const insightsCache=new WeakMap();
 export function buildInsights(data,opts={}){
+ if(!data||typeof data!=='object')return calculateInsights({viagens:[],pedidos:[]},opts);
+ let cached=insightsCache.get(data);
+ if(!cached){cached=new Map();insightsCache.set(data,cached);}
+ const key=[opts.year??'',opts.lateDays??2,new Date().toISOString().slice(0,10)].join('|');
+ if(cached.has(key))return cached.get(key);
+ const result=calculateInsights(data,opts);
+ if(cached.size>4)cached.clear();
+ cached.set(key,result);
+ return result;
+}
+function calculateInsights(data,opts={}){
  const viagens=data.viagens||[],pedidos=data.pedidos||[];
  const docs=pedidos.filter(x=>x.isCte);
  const vTotal=new Map((data.allViagens||viagens).map(v=>[v.id,v]));

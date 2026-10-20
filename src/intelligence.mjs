@@ -34,7 +34,21 @@ export function unifiedSearch(data,term,{financial=false,limit=40}={}){
  }
  return results.slice(0,limit);
 }
+// Agregação de clientes de 12 meses ocorre uma vez por conjunto de dados, não a cada página.
+const customerProfilesCache=new WeakMap();
 export function customerProfiles(data,{financial=false}={}){
+ if(data&&typeof data==='object'){
+  const cached=customerProfilesCache.get(data);
+  if(cached&&Object.hasOwn(cached,financial?'financial':'operational'))return cached[financial?'financial':'operational'];
+ }
+ const result=calculateCustomerProfiles(data,{financial});
+ if(data&&typeof data==='object'){
+  const cached=customerProfilesCache.get(data)||{};
+  cached[financial?'financial':'operational']=result;customerProfilesCache.set(data,cached);
+ }
+ return result;
+}
+function calculateCustomerProfiles(data,{financial=false}={}){
  const map=new Map();
  const target=name=>{
   const display=str(name)||'Não informado',key=norm(display);

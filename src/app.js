@@ -137,7 +137,7 @@ const state = {
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
- customer:'',vehicle:'',serviceType:'',sortKey:'',sortDir:'desc',alertPriority:'todos',
+ customer:'',vehicle:'',serviceType:'',sortKey:'',sortDir:'desc',alertPriority:'todos',extraFiltersOpen:false,clientDetailPage:1,
  hiddenColumns:readPrefs('costalog_visible_columns',{}),presets:readPrefs('costalog_filter_presets',{}),
  demoOnly:PUBLIC_DEMO,reportSelected:'pedidos',reportMulti:false,autoRefresh:0,lastSync:null,prevDataset:null,lateDays:2,apiDiagnostics:null,adminUsers:[],adminUsersLoading:false,adminUsersError:'',adminResetUser:'',role:'financeiro',user:null,permissions:{operacional:false,financeiro:true,admin:false}
 };
@@ -217,7 +217,8 @@ function button(action,label,extra){return '<button type="button" class="btn '+(
 function render(){
  state.view=safeView(state.role,state.view);
  const docsLive=state.mode==='live'&&state.docsSource==='live';
- const d=scoped(),stats=totals(d);
+ // Os totais operacionais profundos eram calculados até em tabelas que não os utilizam.
+ const d=scoped(),stats=['viagens','mdfes'].includes(state.view)?totals(d):null;
  const allowed=navItems.filter(x=>x[0]!=='integracoes'&&permittedView(state.role,x[0]));
  const PRIMARY=['painel','faturamento','documentos','ctes','clientes','analises','comparativos','relatorios'];
  const secondary=allowed.filter(x=>!PRIMARY.includes(x[0]));
@@ -229,7 +230,8 @@ function render(){
   :state.mode==='live'
   ?'<div class="info-strip live"><strong>DSS SINCRONIZADO</strong> · Painel, Faturamento, NFS-e, Pedidos e Clientes usam o período '+esc(state.loadedRange?.from||state.from)+' a '+esc(state.loadedRange?.to||state.to)+' · '+esc(state.docsUpdatedAt||'')+'.</div>'
   :'<div class="info-strip v-demo-notice"><strong>DEMONSTRAÇÃO</strong> · Dados fictícios. Para sincronizar o site, use o botão vermelho ao lado das datas.</div>';
- const detailedFilters=state.view!=='acesso'?'<details class="v-extra-filters"><summary>⚙ Filtros avançados <span>Cliente, placa, serviço e períodos rápidos</span></summary>'+operationalFilters(d,state)+'</details>':'';
+ const detailedFilters=state.view!=='acesso'?'<details class="v-extra-filters" '+(state.extraFiltersOpen?'open':'')+'><summary data-action="toggle-advanced-filters">⚙ Filtros avançados <span>Cliente, placa, serviço e períodos rápidos</span></summary>'+
+ (state.extraFiltersOpen?operationalFilters(d,state):'')+'</details>':'';
  const tools=['ctes','relatorios','faturamento','clientes'].includes(state.view)?
   '<div class="v-heading-tools">'+button('csv',icon('download')+' CSV','btn-sm')+button('print','PDF / Imprimir','btn-sm btn-red')+'</div>':'';
  const dateFilters=state.view==='acesso'?'':renderFilters();
@@ -744,7 +746,10 @@ async function synchronizeElectronicDocuments(token){
    while(next<windows.length){
     const idx=next++;
     const w=windows[idx];results[idx]=await fetchAuthorizedOverview({token,from:w.from,to:w.to});
-    if(epoch===documentsSyncEpoch){done++;state.syncProgress='DSS: '+done+'/'+windows.length+' períodos';render();}
+    if(epoch===documentsSyncEpoch){done++;state.syncProgress='DSS: '+done+'/'+windows.length+' períodos';
+      // Não recriar milhares de elementos do DOM após cada mês retornado.
+      const button=document.querySelector?.('[data-action="docs-sync-open"]');
+      if(button)button.textContent=state.syncProgress;}
    }
   };
   const [rows]=await Promise.all([
@@ -839,7 +844,7 @@ root.addEventListener('click',e=>{
   state.view=view;state.selected=view+':'+id;render();return;
  }
  const openClient=e.target.closest('[data-client-open]');
- if(openClient&&state.permissions.financeiro){state.clientSelected=openClient.dataset.clientOpen;render();return;}
+ if(openClient&&state.permissions.financeiro){state.clientSelected=openClient.dataset.clientOpen;state.clientDetailPage=1;render();return;}
  const profileDetail=e.target.closest('[data-profile-detail]');
  if(profileDetail){state.selected=profileDetail.dataset.profileDetail;render();return;}
  const openRoute=e.target.closest('[data-route-open]');
@@ -859,7 +864,7 @@ root.addEventListener('click',e=>{
  if(insAction){
   const action=insAction.dataset.insAction;
   if(action==='clear-search')state.globalQuery='';
-  if(action==='close-client')state.clientSelected='';
+  if(action==='close-client'){state.clientSelected='';state.clientDetailPage=1;}
   if(action==='clear-route')state.routeSelected='';
   if(action==='clear-driver')state.driverSelected='';
   if(action==='customize')state.showMetricOptions=!state.showMetricOptions;
@@ -890,7 +895,7 @@ root.addEventListener('click',e=>{
    state.tableSort||={};
    const prev=state.tableSort[kind];
    state.tableSort[kind]={key,direction:prev?.key===key&&prev.direction==='desc'?'asc':'desc'};
-   render();
+   state.page=1;render();
   }return;
  }
  const graphInterval=e.target.closest('[data-chart-interval]');if(graphInterval){state.chartInterval=graphInterval.dataset.chartInterval;render();return;}
@@ -917,6 +922,9 @@ root.addEventListener('click',e=>{
  }
  if(action==='docs-sync-open'&&!state.docsLoading){state.docsSyncOpen=true;render();document.getElementById('docsSyncToken')?.focus();}
  if(action==='docs-sync-cancel'){state.docsSyncOpen=false;render();}
+ if(action==='toggle-advanced-filters'){state.extraFiltersOpen=!state.extraFiltersOpen;render();return;}
+ if(action==='customer-detail-prev'&&state.clientDetailPage>1){state.clientDetailPage--;render();return;}
+ if(action==='customer-detail-next'){state.clientDetailPage++;render();return;}
  if(action==='comparison-sync-cancel'){state.comparisonSyncOpen=false;render();}
  if(action==='comparison-sync-backdrop'&&e.target===act){state.comparisonSyncOpen=false;render();}
  if(action==='docs-clear-filters'){state.docsStatus='';state.docsModel='';state.docsSortKey='valorFinal';state.docsSortDir='desc';state.docsPage=1;state.search='';render();}
@@ -1027,6 +1035,7 @@ root.addEventListener('change',e=>{
   file.text().then(text=>{const records=parseCsv(text);if(!records.length){alert('Nenhum registro válido no CSV. Confira o cabeçalho.');return;}state.dataset={...state.dataset,mdfes:records,sources:{...state.dataset.sources,mdfes:true}};state.importCount=records.length;render();alert(records.length+' MDF-e carregados nesta aba.');}).catch(()=>alert('Não foi possível ler o arquivo.'));
  }
 });
+let searchRenderTimer=null;
 root.addEventListener('input',e=>{
  if(e.target.id==='globalSearchInput'){
   const cursor=e.target.selectionStart;
@@ -1036,8 +1045,10 @@ root.addEventListener('input',e=>{
   return;
  }
  if(e.target.id==='searchInput'){
-  const start=e.target.selectionStart;state.search=e.target.value;state.page=1;state.docsPage=1;render();
-  const input=document.getElementById('searchInput');if(input){input.focus();input.setSelectionRange(start,start);}
+  state.search=e.target.value;state.page=1;state.docsPage=1;
+  // Debounce: não reconstruir toda a tabela em cada tecla digitada.
+  clearTimeout(searchRenderTimer);
+  searchRenderTimer=setTimeout(()=>{searchRenderTimer=null;render();const input=document.getElementById('searchInput');if(input)input.focus();},180);
  }
 });
 root.addEventListener('keydown',e=>{

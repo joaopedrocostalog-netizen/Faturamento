@@ -10,10 +10,17 @@ const docSortColumns={
  fatura:{label:'Fatura'},status:{label:'Status'},tipoOperacao:{label:'Operação'},
  modelo:{label:'Modelo'},pontoApoio:{label:'Ponto de apoio'}
 };
+const documentFilterCache=new WeakMap();
 export function filteredElectronicDocuments(rows,s){
+ // Paginar não altera filtros nem ordenação; reusar a lista calculada.
+ const cacheKey=[s.from||'',s.to||'',s.search||'',s.docsStatus||'',s.docsModel||'',
+  s.docsSortKey||'valorFinal',s.docsSortDir||'desc'].join('|');
+ let cached=documentFilterCache.get(rows);
+ if(!cached){cached=new Map();documentFilterCache.set(rows,cached);}
+ if(cached.has(cacheKey))return cached.get(cacheKey);
  const query=normalize(s.search),key=Object.hasOwn(docSortColumns,s.docsSortKey||'')?s.docsSortKey:'valorFinal';
  const direction=s.docsSortDir==='asc'?1:-1;
- return rows.filter(r=>(!s.from||!r.dataEmissao||r.dataEmissao>=s.from)&&(!s.to||!r.dataEmissao||r.dataEmissao<=s.to)
+ const result=rows.filter(r=>(!s.from||!r.dataEmissao||r.dataEmissao>=s.from)&&(!s.to||!r.dataEmissao||r.dataEmissao<=s.to)
    &&(!s.docsStatus||r.status===s.docsStatus)&&(!s.docsModel||r.modelo===s.docsModel)
    &&(!query||[r.parceiro,r.tipoOperacao,r.numeroNfse,r.modelo,r.status,r.fatura,r.pontoApoio,r.id,
     r.valorFinal,r.totalIss,r.dataEmissao,r.dataEmissaoOriginal].some(v=>normalize(v).includes(query))))
@@ -24,6 +31,9 @@ export function filteredElectronicDocuments(rows,s){
     if(docSortColumns[key].numeric)return direction*(x-y);
     return direction*String(x).localeCompare(String(y),'pt-BR',{numeric:true,sensitivity:'base'});
    });
+ if(cached.size>=6)cached.clear();
+ cached.set(cacheKey,result);
+ return result;
 }
 export function renderElectronicDocuments(rows,state){
  const list=filteredElectronicDocuments(rows,state),v=summaryElectronicDocuments(list),real=state.docsSource==='live';

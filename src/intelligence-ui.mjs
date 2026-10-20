@@ -76,21 +76,34 @@ export function renderCustomerProfiles(data,state){
    {label:'Fretes informados',value:curr(client.fretesValor),note:'Não é pagamento confirmado'}]);
   const trips=client.viagens.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   const orders=client.pedidos.slice().sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const size=25,pages=Math.max(1,Math.ceil(Math.max(trips.length,orders.length)/size));
+  const current=Math.min(Math.max(1,state.clientDetailPage||1),pages);
+  const start=(current-1)*size;
+  const visibleTrips=trips.slice(start,start+size),visibleOrders=orders.slice(start,start+size);
   return '<section class="ins-module"><div class="ins-toolbar"><div><h2>PERFIL DO CLIENTE</h2><p>'+esc(client.name)+'</p></div><button class="btn" data-ins-action="close-client">← Todos os clientes</button></div>'+
    cs+'<div class="ins-profile-columns"><div><h3>Rotas mais utilizadas</h3>'+
    (client.routes.length?client.routes.slice(0,8).map(x=>'<div class="ins-info-row"><span>'+esc(x.name)+'</span><strong>'+n(x.count)+' RVs</strong></div>').join(''):empty('Sem rotas disponíveis'))+'</div>'+
    '<div><h3>Histórico mensal</h3>'+
    (client.monthly.length?'<div class="ins-responsive-table"><table><thead><tr><th>Mês</th><th>RVs</th><th>Pedidos</th><th>Fretes informados</th></tr></thead><tbody>'+client.monthly.map(x=>'<tr><td>'+esc(x.month)+'</td><td>'+n(x.viagens)+'</td><td>'+n(x.pedidos)+'</td><td>'+curr(x.fretesKnown?x.fretes:null)+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhum histórico mensal com data'))+'</div></div>'+
    '<div class="ins-profile-columns"><div><h3>Viagens / RV</h3>'+
-   (trips.length?'<div class="ins-responsive-table"><table><thead><tr><th>RV</th><th>Início</th><th>Placa</th><th>Rota</th></tr></thead><tbody>'+trips.map(v=>'<tr><td><button class="ins-link" data-profile-detail="viagens:'+esc(v.id)+'">'+esc(v.numero)+'</button></td><td>'+date(v.data)+'</td><td>'+esc(v.placa||'—')+'</td><td>'+esc((v.origem||'—')+' → '+(v.destino||'—'))+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhuma RV encontrada para este cliente'))+'</div>'+
+   (trips.length?'<div class="ins-responsive-table"><table><thead><tr><th>RV</th><th>Início</th><th>Placa</th><th>Rota</th></tr></thead><tbody>'+visibleTrips.map(v=>'<tr><td><button class="ins-link" data-profile-detail="viagens:'+esc(v.id)+'">'+esc(v.numero)+'</button></td><td>'+date(v.data)+'</td><td>'+esc(v.placa||'—')+'</td><td>'+esc((v.origem||'—')+' → '+(v.destino||'—'))+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhuma RV encontrada para este cliente'))+'</div>'+
    '<div><h3>Pedidos / CT-e</h3>'+
-   (orders.length?'<div class="ins-responsive-table"><table><thead><tr><th>Pedido</th><th>CT-e</th><th>Data</th><th>Frete</th></tr></thead><tbody>'+orders.map(p=>'<tr><td><button class="ins-link" data-profile-detail="ctes:'+esc(p.id)+'">'+esc(p.pedidoNumero||p.id)+'</button></td><td>'+esc(p.cteNumero||'—')+'</td><td>'+date(p.data)+'</td><td>'+curr(p.valor)+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhum pedido encontrado'))+'</div></div>'+
+   (orders.length?'<div class="ins-responsive-table"><table><thead><tr><th>Pedido</th><th>CT-e</th><th>Data</th><th>Frete</th></tr></thead><tbody>'+visibleOrders.map(p=>'<tr><td><button class="ins-link" data-profile-detail="ctes:'+esc(p.id)+'">'+esc(p.pedidoNumero||p.id)+'</button></td><td>'+esc(p.cteNumero||'—')+'</td><td>'+date(p.data)+'</td><td>'+curr(p.valor)+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhum pedido encontrado'))+'</div></div>'+
+   '<div class="pagination"><span>25 registros por lista · Página '+current+' de '+pages+'</span><div class="pagination-actions">'+
+   '<button type="button" class="btn btn-sm" data-action="customer-detail-prev" '+(current<=1?'disabled':'')+'>Anterior</button>'+
+   '<button type="button" class="btn btn-sm" data-action="customer-detail-next" '+(current>=pages?'disabled':'')+'>Próxima</button></div></div>'+
    '<p class="ins-hint">Fretes = valores informados nos pedidos DSS. Não representam faturas pagas nem lucro do cliente. Dados limitados ao período consultado.</p></section>';
  }
+ const ordered=sortedMetricRows(profiles,state.tableSort?.clientes?.key||'fretesValor',state.tableSort?.clientes?.direction||'desc');
+ const size=25,pages=Math.max(1,Math.ceil(ordered.length/size)),page=Math.min(Math.max(state.page||1,1),pages);
+ const visible=ordered.slice((page-1)*size,page*size);
  return '<section class="ins-module"><div class="ins-toolbar"><div><h2>CARTEIRA DE CLIENTES</h2><p>Selecione um cliente para ver viagens, pedidos e histórico</p></div>'+badge(n(profiles.length)+' clientes','violet')+'</div>'+
  (profiles.length?'<div class="ins-responsive-table"><table><thead><tr>'+sortTableHeader('Cliente','name',state,'clientes')+''+sortTableHeader('RVs','tripCount',state,'clientes')+''+sortTableHeader('Pedidos','orderCount',state,'clientes')+''+sortTableHeader('CT-e','cteCount',state,'clientes')+''+sortTableHeader('Fretes','fretesValor',state,'clientes')+''+sortTableHeader('Último registro','lastDate',state,'clientes')+'</tr></thead><tbody>'+
- sortedMetricRows(profiles,state.tableSort?.clientes?.key||'fretesValor',state.tableSort?.clientes?.direction||'desc').map(p=>'<tr><td><button class="ins-link" data-client-open="'+esc(p.name)+'">'+esc(p.name)+'</button></td><td>'+n(p.tripCount)+'</td><td>'+n(p.orderCount)+'</td><td>'+n(p.cteCount)+'</td><td>'+curr(p.fretesValor)+'</td><td>'+date(p.lastDate)+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhum cliente encontrado no período selecionado.'))+
- '<p class="ins-hint">Dados do DSS, agregados pelo nome do cliente. Empresas homônimas podem precisar de identificação adicional quando o cadastro fornecer ID consistente.</p></section>';
+ visible.map(p=>'<tr><td><button class="ins-link" data-client-open="'+esc(p.name)+'">'+esc(p.name)+'</button></td><td>'+n(p.tripCount)+'</td><td>'+n(p.orderCount)+'</td><td>'+n(p.cteCount)+'</td><td>'+curr(p.fretesValor)+'</td><td>'+date(p.lastDate)+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhum cliente encontrado no período selecionado.'))+
+ '<div class="pagination"><span>'+n(profiles.length)+' clientes · Página '+page+' de '+pages+' · 25 por página</span>'+
+ '<div class="pagination-actions"><button type="button" class="btn btn-sm" data-action="prev" '+(page<=1?'disabled':'')+'>Anterior</button>'+
+ '<button type="button" class="btn btn-sm" data-action="next" '+(page>=pages?'disabled':'')+'>Próxima</button></div></div>'+
+ '<p class="ins-hint">Somente 25 clientes são montados por página. Clique nas colunas para ordenar o conjunto completo.</p></section>';
 }
 export function renderDriverRouteDetails(data,state,view){
  const trips=data.viagens||[],orders=data.pedidos||[],routes=routeStats(trips),drivers=driverStats(trips,orders);
