@@ -91,14 +91,14 @@ test('Tabela exibe 25 parcelas por página e permite expandir 34 campos sem HTML
  const rows=filteredReceivables(data,a);
  assert.equal(rows.length,100);
  const h=renderReceivables(data,a);
- assert.equal((h.match(/<tbody>/g)||[]).length,1);
- assert.equal((h.match(/<tr>/g)||[]).length,26);
+ assert.equal((h.match(/<tbody>/g)||[]).length,2);
+ assert.equal((h.match(/<tr>/g)||[]).length,33); // 25 parcelas + 6 faixas de atraso + 2 cabeçalhos
  assert(h.includes('F-99'));assert(!h.includes('F-0</td>'));
  assert(h.includes('Linha digitável'));
  assert(!h.includes('<img src=x onerror'));
  assert(h.includes('data-action="recv-next"'));
  const h2=renderReceivables(data,{...a,recvPage:2});
- assert.equal((h2.match(/<tr>/g)||[]).length,26);
+ assert.equal((h2.match(/<tr>/g)||[]).length,33);
  assert.notEqual(h,h2);
  const dlg=renderReceivablesTokenDialog(a);
  assert(dlg.includes('id="receivablesSyncForm"'));assert(dlg.includes('type="password"'));
