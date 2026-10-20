@@ -3,9 +3,10 @@
 Portal web de faturamento da COSTALOG, construído sobre a mesma interface visual do projeto Viagens-PF, mantendo as cores, logotipo, filtros, comparativos e recursos de exportação.
 
 ## Acesso livre (sem senha)
-Ao abrir o site, o visitante entra **diretamente no Painel**, com cinco abas visíveis:
+Ao abrir o site, o visitante entra **diretamente no Painel**, com seis abas visíveis:
 - Painel
 - Faturamento
+- Documentos / NFS-e
 - Pedidos / CT-e
 - Clientes / Fretes
 - Comparativos
@@ -27,3 +28,8 @@ O backend DSS, o MariaDB e as credenciais do portal principal permanecem separad
 - Implantação: workflow `.github/workflows/pages.yml` (GitHub Actions → GitHub Pages).
 
 O backend de referência está incluído para futura adaptação privada, **mas não é usado pelo frontend público sem senha**.
+
+## Documentos eletrônicos / NFS-e
+A nova aba traz pesquisa, filtro por emissão, listagem, totais de valor final e ISS, faturas e exportação CSV. O GitHub Pages mostra **somente exemplos fictícios**.
+
+O backend dispõe de `GET /api/documentos-eletronicos` autenticado. O serviço está descrito em [INTEGRACAO_DOCUMENTOS_NFSE.md](./INTEGRACAO_DOCUMENTOS_NFSE.md), e o [render.yaml](./render.yaml) define o Blueprint para o Render. A rota específica da operação no DSS precisa ser confirmada no Swagger antes de consultas reais. Nenhuma credencial deve ser colocada no frontend público.
