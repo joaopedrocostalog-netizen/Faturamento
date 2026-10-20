@@ -8,7 +8,7 @@ const sample={status:200,apiVersion:1,mensagemErro:'',qtd_registros:2,registros:
 {id:0,parceiro:'Teste A',tipo_operacao:'Serviços',numero_nfse:'101',modelo:'NFS-e',status:'Emitida',data_emissao:'10/10/2026',valor_final:1300.25,total_iss:65.01,fatura:'F-001',ponto_apoio:'Santos'},
 {id:2,parceiro:'Teste B',tipo_operacao:'Fretes',numero_nfse:'102',modelo:'NFS-e',status:'Pendente',data_emissao:'11/10/2026',valor_final:0,total_iss:0,fatura:'',ponto_apoio:'Guarujá'}
 ]};
-const env={DSS_BASE_URL:'https://api.example.org/wsdss',DSS_DOCUMENTOS_PATH:'/rota_confirmada_no_swagger',DSS_USERNAME:'usuario',DSS_PASSWORD:'senha',DSS_AUTH_TYPE:'basic'};
+const env={DSS_BASE_URL:'https://api.example.org/wsdss',DSS_DOCUMENTOS_PATH:'/rota_confirmada_no_swagger',DSS_USERNAME:'usuario',DSS_PASSWORD:'chave-teste-interna-123',DSS_AUTH_TYPE:'basic'};
 test('Normaliza todos os 11 campos sem transformar zero em vazio',()=>{
  const docs=normalizeElectronicDocuments(sample);
  assert.equal(docs.length,2);assert.equal(docs[0].id,'0');
@@ -28,7 +28,7 @@ test('Consulta backend formata intervalo DSS e insere Basic Auth somente no serv
  assert.equal(fetched.url.searchParams.get('data_inicio'),'01/10/2026');
  assert.equal(fetched.url.searchParams.get('data_fim'),'20/10/2026');
  assert.equal(fetched.url.pathname,'/wsdss/rota_confirmada_no_swagger');
- assert.equal(fetched.opts.headers.Authorization,'Basic '+Buffer.from('usuario:senha').toString('base64'));
+ assert.equal(fetched.opts.headers.Authorization,'Basic '+Buffer.from('usuario:chave-teste-interna-123').toString('base64'));
  assert.equal(result.registros.length,2);
  assert.equal(result.registros[0].numeroNfse,'101');
  assert.equal(result.registros[0].parceiro,'Teste A');
@@ -43,7 +43,7 @@ test('Falhas 400, 401, 403, 500, rota ausente e datas são tratadas sem revelar 
  await assert.rejects(()=>queryElectronicDocuments({env,from:'2026-01-01'}),e=>e.status===400);
  await assert.rejects(()=>queryElectronicDocuments({env,from:'2026-02-31',to:'2026-10-01'}),e=>e.status===400);
  const response=(status,json)=>({status,ok:status===200,async json(){return json??sample;}});
- await assert.rejects(()=>queryElectronicDocuments({env,fetchImpl:async()=>response(401)}),e=>e.status===502&&!e.message.includes('senha'));
+ await assert.rejects(()=>queryElectronicDocuments({env,fetchImpl:async()=>response(401)}),e=>e.status===502&&!e.message.includes(env.DSS_PASSWORD));
  await assert.rejects(()=>queryElectronicDocuments({env,fetchImpl:async()=>response(403)}),e=>e.status===403&&e.message.includes('tms_faturamento'));
  await assert.rejects(()=>queryElectronicDocuments({env,fetchImpl:async()=>response(200,{...sample,status:403})}),e=>e.status===403);
  await assert.rejects(()=>queryElectronicDocuments({env,fetchImpl:async()=>response(500)}),e=>e.status===502);
