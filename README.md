@@ -1,16 +1,16 @@
-# COSTALOG | Faturamento & Financeiro
+# COSTALOG | Faturamento
 
-Portal web financeiro da COSTALOG, construído sobre a mesma interface visual do projeto Viagens-PF, mantendo as cores, logotipo, filtros, gráficos e recursos de exportação.
+Portal web de faturamento da COSTALOG, construído sobre a mesma interface visual do projeto Viagens-PF, mantendo as cores, logotipo, filtros, comparativos e recursos de exportação.
 
 ## Acesso livre (sem senha)
-Ao abrir o site, o visitante entra **diretamente no Painel financeiro**, com as sete abas:
-- Painel financeiro
+Ao abrir o site, o visitante entra **diretamente no Painel**, com cinco abas visíveis:
+- Painel
 - Faturamento
 - Pedidos / CT-e
 - Clientes / Fretes
-- Análises financeiras
 - Comparativos
-- Relatórios financeiros
+
+As abas **Análises financeiras** e **Relatórios financeiros** estão ocultas, inclusive seus atalhos e os gráficos de análises incorporados no Painel. O código delas permanece no repositório para o futuro site **Financeiro**. Para reabilitá-las na cópia do projeto, altere `SHOW_FINANCE_ONLY_TABS` para `true` em `src/access-ui.mjs`.
 
 **Não há formulário de login, senha, conta de usuário ou tela de acesso restrito na interface publicada.** Os relatórios do modo demonstração podem ser exportados.
 

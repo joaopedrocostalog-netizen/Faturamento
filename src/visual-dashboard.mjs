@@ -33,18 +33,18 @@ function panel(title,kicker,content,extra=''){
 function empty(text){return '<div class="v-chart-empty"><span>◇</span>'+H(text)+'</div>';}
 export function renderHero(view,d,{from,to,mode,financeiro}){
  const titles={
-  painel:['PAINEL FINANCEIRO','Indicadores de faturamento, pedidos e clientes'],
+  painel:['PAINEL','Indicadores de faturamento, pedidos e clientes'],
   graficos:['VISÃO GRÁFICA','Indicadores, tendências e distribuição dos registros DSS'],
   viagens:['VIAGENS / RV','Relatórios de viagem, placas, clientes e situações'],
   ctes:['PEDIDOS DE FRETE / CT-e','Acompanhamento de documentos vinculados às viagens'],
   relatorios:['RELATÓRIOS FINANCEIROS','Exportação de pedidos, CT-e e clientes'],
   comparativos:['COMPARATIVOS','Evolução diária, semanal e mensal dos indicadores'],
-  faturamento:['FATURAMENTO','Análise financeira dos pedidos de frete'],
+  faturamento:['FATURAMENTO','Acompanhamento dos pedidos de frete e suas faturas'],
   clientes:['CLIENTES & FRETES','Valores e distribuição por cliente'],
   analises:['ANÁLISES FINANCEIRAS','Tendências mensais e valores de pedidos']
  };
  const t=titles[view]||[String(view||'painel').toUpperCase(),'Acompanhamento financeiro COSTALOG'];
- return '<section class="v-hero"><div class="v-hero-mark">▦</div><div class="v-hero-copy"><div class="v-eyebrow">COSTALOG <span> / INTELIGÊNCIA FINANCEIRA</span></div><h1>'+H(t[0])+' <span class="v-hero-badge">'+(mode==='live'?'DSS':'DEMONSTRAÇÃO')+'</span></h1><p>'+H(t[1])+'</p></div><div class="v-hero-side"><span>PERÍODO SELECIONADO</span><strong>'+H(PT(from))+' — '+H(PT(to))+'</strong><small>'+N(d.pedidos.length)+' pedidos de frete</small></div></section>';
+ return '<section class="v-hero"><div class="v-hero-mark">▦</div><div class="v-hero-copy"><div class="v-eyebrow">COSTALOG <span> / GESTÃO DE FATURAMENTO</span></div><h1>'+H(t[0])+' <span class="v-hero-badge">'+(mode==='live'?'DSS':'DEMONSTRAÇÃO')+'</span></h1><p>'+H(t[1])+'</p></div><div class="v-hero-side"><span>PERÍODO SELECIONADO</span><strong>'+H(PT(from))+' — '+H(PT(to))+'</strong><small>'+N(d.pedidos.length)+' pedidos de frete</small></div></section>';
 }
 export function renderSummary(d,settings){
  const viagens=d.viagens||[],pedidos=d.pedidos||[];

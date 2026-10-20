@@ -1,7 +1,13 @@
 /** Regras visuais: segurança real é aplicada em api/access.mjs no servidor. */
-/** Aplicação exclusiva da área financeira. O backend continua validando as permissões. */
+/** Portal de faturamento: preservar os módulos financeiros para reutilização futura.
+ * Ao criar o site Financeiro, basta habilitar SHOW_FINANCE_ONLY_TABS na cópia do projeto.
+ * Esta flag controla navegação e blocos incorporados no Painel.
+ */
+export const SHOW_FINANCE_ONLY_TABS = false;
+export const HIDDEN_FINANCE_VIEWS = ['analises','relatorios'];
 export const FIN_VIEWS=['painel','faturamento','ctes','clientes','analises','comparativos','relatorios'];
-export function permittedView(role,view){return ['financeiro','administrador'].includes(role)&&FIN_VIEWS.includes(view);}
+export const VISIBLE_VIEWS=SHOW_FINANCE_ONLY_TABS?FIN_VIEWS:FIN_VIEWS.filter(view=>!HIDDEN_FINANCE_VIEWS.includes(view));
+export function permittedView(role,view){return ['financeiro','administrador'].includes(role)&&VISIBLE_VIEWS.includes(view);}
 export function reportTypesFor(role){return ['financeiro','administrador'].includes(role)?['pedidos','ctes','clientes']:[];}
 export function secureReport(report,type,role){
  if(!reportTypesFor(role).includes(type))throw Error('Relatório não permitido para este perfil.');

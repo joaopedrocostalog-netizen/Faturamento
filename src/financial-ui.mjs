@@ -2,6 +2,7 @@
 import {buildInsights} from './operational.mjs';
 import {subsetPeriod} from './intelligence.mjs';
 import {renderAdvanced} from './advanced-ui.mjs';
+import {SHOW_FINANCE_ONLY_TABS} from './access-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR').format(v):'—';
 const brl=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v):'—';
@@ -11,7 +12,7 @@ export function renderFinanceDashboard(data,state){
  const insights=buildInsights(data,{year:Number((state.from||'').slice(0,4)||new Date().getFullYear())});
  const t=insights.totals;
  const withInvoice=(data.pedidos||[]).filter(p=>String(p.numeroFatura||'').trim()).length;
- return '<section class="ins-module"><div class="section-title"><h2>RESUMO FINANCEIRO</h2><span>Fonte: '+(state.mode==='live'?'DSS':'dados de demonstração')+'</span></div>'+
+ return '<section class="ins-module"><div class="section-title"><h2>RESUMO DE FATURAMENTO</h2><span>Fonte: '+(state.mode==='live'?'DSS':'dados de demonstração')+'</span></div>'+
  '<div class="kpis">'+
  card('FRETES INFORMADOS',brl(t.freight.known?t.freight.sum:null),'Valor dos pedidos; não é pagamento recebido')+
  card('PEDIDOS DE FRETE',num(t.orders),'Registros no intervalo selecionado')+
@@ -19,8 +20,8 @@ export function renderFinanceDashboard(data,state){
  card('LIBERADOS SEM FATURA',num(t.withoutInvoice),'Requer conferência do número da fatura')+
  card('COM Nº DE FATURA',num(withInvoice),'Não comprova emissão ou recebimento')+
  card('TICKET MÉDIO',brl(t.freight.known?t.freight.sum/t.freight.known:null),'Somente pedidos com valores preenchidos')+
- '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button><button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button></div></section>'+
- renderAdvanced('analises',data,{...state,search:''});
+ '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button>'+ (SHOW_FINANCE_ONLY_TABS ? '<button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button>' : '')+'</div></section>'+
+ (SHOW_FINANCE_ONLY_TABS ? renderAdvanced('analises',data,{...state,search:''}) : '');
 }
 const comparisons=d=>{const t=buildInsights(d).totals;return [
  {label:'Pedidos de frete',value:t.orders},
@@ -44,7 +45,7 @@ export function renderFinanceComparison(data,state){
    const fmt=m.money?brl:num;
    return '<tr><td>'+esc(m.label)+'</td><td>'+esc(fmt(m.value))+'</td><td>'+esc(fmt(prev))+'</td><td>'+esc(fmt(delta))+'</td><td>'+esc(percent===null?'—':percent.toFixed(1).replace('.',',')+'%')+'</td></tr>';
  }).join('');
- return '<section class="ins-module"><div class="ins-toolbar"><div><h2>COMPARATIVO FINANCEIRO</h2><p>Compare pedidos, valores de fretes e situação de faturamento entre dois períodos.</p></div></div>'+
+ return '<section class="ins-module"><div class="ins-toolbar"><div><h2>COMPARATIVO DE FATURAMENTO</h2><p>Compare pedidos, valores de fretes e situação de faturamento entre dois períodos.</p></div></div>'+
  '<div class="ins-compare-anchor"><label>Período A: de <input type="date" id="compareCurrentFrom" value="'+esc(current.from)+'"></label><label>Até <input type="date" id="compareCurrentTo" value="'+esc(current.to)+'"></label><label>Período B: de <input type="date" id="comparePreviousFrom" value="'+esc(previous.from)+'"></label><label>Até <input type="date" id="comparePreviousTo" value="'+esc(previous.to)+'"></label></div>'+
  '<div class="ins-period-label"><div><small>PERÍODO A</small><strong>'+esc(date(current.from))+' a '+esc(date(current.to))+'</strong></div><div><small>PERÍODO B</small><strong>'+esc(date(previous.from))+' a '+esc(date(previous.to))+'</strong></div></div>'+
  (state.mode==='live'&&!ready?'<div class="ins-compare-init"><p>Consulte os períodos no DSS para comparar dados reais.</p><button class="btn btn-red" data-ins-action="load-comparison">Consultar os dois períodos</button></div>':'')+

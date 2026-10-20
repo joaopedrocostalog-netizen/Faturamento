@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-test('Abre diretamente o financeiro sem formulário de login e sem bloqueio',async()=>{
+test('Abre diretamente o faturamento sem formulário de login e com abas financeiras futuras ocultas',async()=>{
  const events={},root={innerHTML:'',addEventListener(k,f){events[k]=f;}},storage=new Map();
  globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
  globalThis.window={location:{protocol:'https:',origin:'https://empresa.github.io',hostname:'empresa.github.io'}};
@@ -9,11 +9,16 @@ test('Abre diretamente o financeiro sem formulário de login e sem bloqueio',asy
  globalThis.document={getElementById:id=>id==='app'?root:null,addEventListener(){},visibilityState:'visible'};
  globalThis.fetch=async()=>{throw Error('O frontend público nunca deve buscar dados DSS protegidos');};
  await import('../src/app.js?finance-public=1');
- assert(root.innerHTML.includes('RESUMO FINANCEIRO'));
+ assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
  assert(root.innerHTML.includes('ACESSO LIVRE'));
  assert(root.innerHTML.includes('data-nav="faturamento"'));
  assert(root.innerHTML.includes('data-nav="clientes"'));
- assert(root.innerHTML.includes('data-nav="relatorios"'));
+ assert(!root.innerHTML.includes('data-nav="relatorios"'));
+ assert(!root.innerHTML.includes('data-nav="analises"'));
+ assert(!root.innerHTML.includes('EXPORTAR RELATÓRIOS'));
+ assert(!root.innerHTML.includes('ANÁLISES FINANCEIRAS'));
+ assert(root.innerHTML.includes('GESTÃO DE FATURAMENTO'));
+ assert(root.innerHTML.includes('>PAINEL '));
  assert(!root.innerHTML.includes('Acesso financeiro restrito'));
  assert(!root.innerHTML.includes('loginForm'));
  assert(!root.innerHTML.includes('data-action="connect"'));
@@ -23,8 +28,17 @@ test('Abre diretamente o financeiro sem formulário de login e sem bloqueio',asy
  const nav=e=>events.click({target:{closest:q=>q==='[data-nav]'?{dataset:{nav:e}}:null}});
  nav('faturamento');
  assert(root.innerHTML.includes('data-nav="faturamento"'));
+ nav('relatorios');
+ assert(!root.innerHTML.includes('RELATÓRIOS FINANCEIROS'));
+ nav('analises');
+ assert(!root.innerHTML.includes('ANÁLISES FINANCEIRAS'));
  nav('comparativos');
- assert(root.innerHTML.includes('COMPARATIVO FINANCEIRO'));
+ assert(root.innerHTML.includes('COMPARATIVO DE FATURAMENTO'));
+ assert(!root.innerHTML.includes('data-nav="relatorios"'));
+ assert(!root.innerHTML.includes('data-nav="analises"'));
+ nav('painel');
+ assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
+ assert(!root.innerHTML.includes('data-nav="relatorios"'));
 });
 test('A configuração publicada não aponta para backend privado',()=>{
  const cfg=readFileSync('src/site-config.mjs','utf8');

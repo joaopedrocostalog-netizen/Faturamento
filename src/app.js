@@ -205,7 +205,9 @@ function totals(data){
  const mismatched=data.sources.mdfes?data.mdfes.filter(m=>m.viagemId&&!data.allViagens.some(t=>t.id===m.viagemId)):null;
  return {revenue:revenueKnown.length?revenue:null,cost:costsKnown.length?cost:null,profit:completeMoney?revenue-cost:null,margin:completeMoney&&revenue?pct((revenue-cost)/revenue*100):'—',orphan,mismatched,linked,completeMoney,revenueCount:revenueKnown.length,costCount:costsKnown.length};
 }
-const navItems=[['painel','home','Painel financeiro'],['faturamento','doc','Faturamento'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
+// As abas de Análises financeiras e Relatórios financeiros permanecem definidas
+// aqui para uso futuro, mas são filtradas por VISIBLE_VIEWS em access-ui.mjs.
+const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
 const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],['entregas','Entregas'],['pendencias','Pendências'],['rotas','Rotas'],['veiculos','Frota'],['motoristas','Motoristas'],['ocorrencias','Ocorrências'],['mdfes','MDF-e'],['relatorios','Relatórios'],['faturamento','Faturamento'],['clientes','Clientes'],['analises','Análises financeiras'],['administracao','Administração'],['integracoes','Integração']];
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
@@ -225,7 +227,7 @@ function render(){
  const dateFilters=state.view==='acesso'?'':renderFilters();
  const globalSearch='';
  root.innerHTML='<div class="layout v-app"><main class="main v-main">'+
- '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="./logo-costalog-sem-fundo-1024x876.png" alt="Logotipo COSTALOG"><div><b>COSTALOG</b><small>A LOGÍSTICA IDEAL</small></div><i></i><strong>GESTÃO FINANCEIRA & FATURAMENTO</strong></div>'+
+ '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="./logo-costalog-sem-fundo-1024x876.png" alt="Logotipo COSTALOG"><div><b>COSTALOG</b><small>A LOGÍSTICA IDEAL</small></div><i></i><strong>GESTÃO DE FATURAMENTO</strong></div>'+
  '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'?'connected':'')+'">'+(state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
  '<span class="v-username">ACESSO LIVRE</span></div></header>'+
  '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(state.mode==='live'?'DADOS DO DSS':'DADOS DE TESTE')+'</div></div>'+
@@ -234,7 +236,7 @@ function render(){
  '<div class="v-tools-row">'+dateFilters+tools+'</div>'+globalSearch+detailedFilters+message+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
- '<footer class="v-footer">COSTALOG • Portal financeiro • '+(PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
+ '<footer class="v-footer">COSTALOG • Portal de faturamento • '+(PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
  (state.selected?renderDrawer(d):'');
 }
 function renderFilters(){
