@@ -63,7 +63,12 @@ export function renderCustomDashboard(data,state){
 }
 export function renderCustomerProfiles(data,state){
  if(!state.permissions.financeiro)return empty('Acesso à área financeira restrito.');
- const profiles=customerProfiles(data,{financial:true}),selected=state.clientSelected;
+ const query=String(state.search||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
+ const profiles=customerProfiles(data,{financial:true}).filter(p=>!query||[
+  p.name,p.tripCount,p.orderCount,p.cteCount,p.fretesValor,p.lastDate,
+  ...(p.pedidos||[]).flatMap(o=>[o.pedidoNumero,o.cteNumero,o.numeroFatura])
+ ].some(v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').includes(query))),
+ selected=state.clientSelected;
  const client=selected?profiles.find(x=>x.name===selected):null;
  if(client){
   const cs=cards([{label:'RVs',value:n(client.tripCount)},
@@ -84,7 +89,7 @@ export function renderCustomerProfiles(data,state){
  }
  return '<section class="ins-module"><div class="ins-toolbar"><div><h2>CARTEIRA DE CLIENTES</h2><p>Selecione um cliente para ver viagens, pedidos e histórico</p></div>'+badge(n(profiles.length)+' clientes','violet')+'</div>'+
  (profiles.length?'<div class="ins-responsive-table"><table><thead><tr>'+sortTableHeader('Cliente','name',state,'clientes')+''+sortTableHeader('RVs','tripCount',state,'clientes')+''+sortTableHeader('Pedidos','orderCount',state,'clientes')+''+sortTableHeader('CT-e','cteCount',state,'clientes')+''+sortTableHeader('Fretes','fretesValor',state,'clientes')+''+sortTableHeader('Último registro','lastDate',state,'clientes')+'</tr></thead><tbody>'+
- sortedMetricRows(profiles,state.tableSort?.clientes?.key||'tripCount',state.tableSort?.clientes?.direction||'desc').map(p=>'<tr><td><button class="ins-link" data-client-open="'+esc(p.name)+'">'+esc(p.name)+'</button></td><td>'+n(p.tripCount)+'</td><td>'+n(p.orderCount)+'</td><td>'+n(p.cteCount)+'</td><td>'+curr(p.fretesValor)+'</td><td>'+date(p.lastDate)+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhum cliente encontrado no período selecionado.'))+
+ sortedMetricRows(profiles,state.tableSort?.clientes?.key||'fretesValor',state.tableSort?.clientes?.direction||'desc').map(p=>'<tr><td><button class="ins-link" data-client-open="'+esc(p.name)+'">'+esc(p.name)+'</button></td><td>'+n(p.tripCount)+'</td><td>'+n(p.orderCount)+'</td><td>'+n(p.cteCount)+'</td><td>'+curr(p.fretesValor)+'</td><td>'+date(p.lastDate)+'</td></tr>').join('')+'</tbody></table></div>':empty('Nenhum cliente encontrado no período selecionado.'))+
  '<p class="ins-hint">Dados do DSS, agregados pelo nome do cliente. Empresas homônimas podem precisar de identificação adicional quando o cadastro fornecer ID consistente.</p></section>';
 }
 export function renderDriverRouteDetails(data,state,view){

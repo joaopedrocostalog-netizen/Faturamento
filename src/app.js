@@ -11,7 +11,7 @@ import {normalizeOverview,costByClient} from './dss-mapping.mjs';
 import {renderFinanceDashboard,renderFinanceComparison} from './financial-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
-import {fetchAuthorizedDocuments} from './dss-sync.mjs';
+import {fetchAuthorizedDocuments,fetchAuthorizedOverview} from './dss-sync.mjs';
 /* COSTALOG | Viagens e Fretes. Sem credenciais no frontend. */
 const root = document.getElementById('app');
 const fmtBRL = new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL',maximumFractionDigits:0});
@@ -133,7 +133,7 @@ async function demoChangeOwnPassword(currentPassword,newPassword){
 const state = {
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
- docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,
+ docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',
@@ -216,7 +216,7 @@ const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
  state.view=safeView(state.role,state.view);
- const docsLive=state.view==='documentos'&&state.docsSource==='live';
+ const docsLive=state.mode==='live'&&state.docsSource==='live';
  const d=scoped(),stats=totals(d);
  const allowed=navItems.filter(x=>x[0]!=='integracoes'&&permittedView(state.role,x[0]));
  const PRIMARY=['painel','faturamento','documentos','ctes','clientes','analises','comparativos','relatorios'];
@@ -224,9 +224,9 @@ function render(){
  const tab=(x,cl)=>'<button type="button" class="'+cl+' '+(state.view===x[0]?'active':'')+'" data-nav="'+x[0]+'" aria-current="'+(state.view===x[0]?'page':'false')+'">'+icon(x[1])+'<span>'+esc(x[2])+'</span></button>';
  const primary=allowed.filter(x=>PRIMARY.includes(x[0])).map(x=>tab(x,'v-nav-item')).join('');
  const sub=secondary.map(x=>tab(x,'v-sub-item')).join('');
- const message=docsLive?'<div class="info-strip live"><strong>NFS-e SINCRONIZADAS COM DSS</strong> · Apenas os documentos desta aba foram consultados com autorização privada. As demais abas permanecem em demonstração.</div>':
- state.view==='acesso'?'':state.mode==='live'?'<div class="info-strip '+(state.error?'error':'live')+'"><strong>DSS:</strong> '+(state.error?'Última atualização falhou. Mostrando dados reais anteriores, que podem estar desatualizados. '+esc(state.error):'Dados consultados no servidor. Campos ausentes são exibidos como “—”.')+'</div>':
- '<div class="info-strip v-demo-notice"><strong>AMBIENTE DE DEMONSTRAÇÃO</strong> · Registros fictícios. Use SINCRONIZAR COM DSS na aba Documentos / NFS-e para consultar dados reais com autorização privada.</div>';
+ const message=state.mode==='live'
+  ?'<div class="info-strip live"><strong>DSS SINCRONIZADO</strong> · Todas as abas de Faturamento utilizam dados reais do período '+esc(state.loadedRange?.from||state.from)+' a '+esc(state.loadedRange?.to||state.to)+' · '+esc(state.docsUpdatedAt||'')+'.</div>'
+  :'<div class="info-strip v-demo-notice"><strong>DEMONSTRAÇÃO</strong> · Dados fictícios. Para sincronizar o site inteiro com DSS, use o botão vermelho ao lado das datas.</div>';
  const detailedFilters=state.view!=='acesso'?'<details class="v-extra-filters"><summary>⚙ Filtros avançados <span>Cliente, placa, serviço e períodos rápidos</span></summary>'+operationalFilters(d,state)+'</details>':'';
  const tools=['ctes','relatorios','faturamento','clientes'].includes(state.view)?
   '<div class="v-heading-tools">'+button('csv',icon('download')+' CSV','btn-sm')+button('print','PDF / Imprimir','btn-sm btn-red')+'</div>':'';
@@ -236,10 +236,11 @@ function render(){
  '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="./logo-costalog-sem-fundo-1024x876.png" alt="Logotipo COSTALOG"><div><b>COSTALOG</b><small>A LOGÍSTICA IDEAL</small></div><i></i><strong>GESTÃO DE FATURAMENTO</strong></div>'+
  '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'||docsLive?'connected':'')+'">'+(docsLive?'● DSS NFS-e':state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
  '<span class="v-username">ACESSO LIVRE</span></div></header>'+
- '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(docsLive?'NFS-e DSS':state.mode==='live'?'DADOS DO DSS':'DADOS DE TESTE')+'</div></div>'+
+ '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(state.mode==='live'?'DADOS DSS':'DADOS DE TESTE')+'</div></div>'+
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
  '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:docsLive?'live':state.mode,financeiro:state.permissions.financeiro})+
- '<div class="v-tools-row">'+dateFilters+tools+'</div>'+globalSearch+detailedFilters+message+
+ '<div class="v-tools-row">'+dateFilters+tools+'</div>'+renderSearchBar()+globalSearch+detailedFilters+message+
+ (state.syncError?'<div class="info-strip error"><strong>Sincronização:</strong> '+esc(state.syncError)+'</div>':'')+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
  '<footer class="v-footer">COSTALOG • Portal de faturamento • '+(docsLive?'NFS-e: registros DSS consultados com token privado • Demais abas: demonstração.':PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
@@ -248,11 +249,21 @@ function render(){
 }
 function renderFilters(){
  if(state.view==='integracoes')return '';
- return '<div class="filters"><div class="filter"><label for="from">De</label><input class="control" id="from" type="date" max="'+localToday()+'" value="'+attr(state.from)+'"></div><div class="filter"><label for="to">Até</label><input class="control" id="to" type="date" max="'+localToday()+'" value="'+attr(state.to)+'"></div>'+
- (['viagens','ctes','clientes','documentos','mdfes','ocorrencias',...ADVANCED_VIEWS].includes(state.view)?'<div class="filter grow"><label for="searchInput">Buscar registros</label><input id="searchInput" class="control full" type="search" placeholder="Número, placa, cliente ou situação..." value="'+attr(state.search)+'"></div>':'')+
- (['viagens','ctes','mdfes'].includes(state.view)?'<div class="filter"><label for="statusFilter">Situação</label><select id="statusFilter" class="control"><option value="todos">Todas</option><option value="vinculado" '+(state.filter==='vinculado'?'selected':'')+'>Vinculados</option><option value="pendente" '+(state.filter==='pendente'?'selected':'')+'>Sem vínculo</option></select></div>':'')+
- (state.mode==='live'&&!PUBLIC_DEMO?'<div class="filter"><label>Consulta DSS</label><button type="button" class="btn btn-red" data-action="refresh" '+(state.loading?'disabled':'')+'>'+(state.loading?(state.loadingProgress||'Consultando DSS...'):'Atualizar dados da DSS')+'</button></div>':'')+
- '</div>';
+ return '<div class="filters global-sync-filters"><div class="filter"><label for="from">Data inicial</label><input class="control" id="from" type="date" max="'+localToday()+'" value="'+attr(state.from)+'"></div>'+
+ '<div class="filter"><label for="to">Data final</label><input class="control" id="to" type="date" max="'+localToday()+'" value="'+attr(state.to)+'"></div>'+
+ '<div class="filter sync-filter"><label>Atualização dos módulos</label><button type="button" class="btn btn-red sync-main-btn" data-action="docs-sync-open" '+(state.docsLoading?'disabled':'')+'>'+icon('reload')+' '+(state.docsLoading?(state.syncProgress||'SINCRONIZANDO...'):'SINCRONIZAR COM DSS')+'</button></div>'+
+ (['viagens','ctes','mdfes'].includes(state.view)?'<div class="filter"><label for="statusFilter">Vínculo</label><select id="statusFilter" class="control"><option value="todos">Todos</option><option value="vinculado" '+(state.filter==='vinculado'?'selected':'')+'>Vinculados</option><option value="pendente" '+(state.filter==='pendente'?'selected':'')+'>Sem vínculo</option></select></div>':'')+'</div>';
+}
+function renderSearchBar(){
+ const placeholders={faturamento:'Pedido, fatura, cliente, CT-e ou valor...',
+ documentos:'NFS-e, parceiro, fatura, operação, status ou valor...',
+ ctes:'Pedido, CT-e, cliente, placa, situação ou valor...',
+ clientes:'Nome do cliente, CNPJ ou número de pedido...'};
+ if(!Object.hasOwn(placeholders,state.view))return '';
+ return '<div class="v-search-row"><div class="v-search-field">'+icon('search')+
+ '<input id="searchInput" class="control full" type="search" aria-label="Pesquisar nesta aba" placeholder="'+placeholders[state.view]+'" value="'+attr(state.search)+'" autocomplete="off">'+
+ (state.search?'<button type="button" class="btn btn-sm" data-action="clear-search" aria-label="Limpar pesquisa">Limpar</button>':'')+'</div>'+
+ '<span class="v-search-hint">Busca nesta aba · resultados atualizados automaticamente</span></div>';
 }
 function kpi(label,value,sub,cl){return '<article class="kpi"><div class="kpi-label">'+label+'</div><div class="kpi-value '+(cl||'')+'">'+value+'</div><div class="kpi-sub">'+sub+'</div></article>';}
 function renderOcorrencias(d){
@@ -695,25 +706,59 @@ async function loadData(){
 let documentsSyncEpoch=0;
 function invalidateSyncedDocuments(){
  documentsSyncEpoch++;
- if(state.docsSource==='live'||state.docsSource==='pending'){
+ if(state.mode==='live'||state.docsSource==='pending'||state.docsLoading){
+  state.dataset=demo;state.mode='demo';state.loadedRange=null;
   state.docsRows=[];state.docsSource='pending';state.docsUpdatedAt='';
+  state.lastSync=null;state.comparison=null;state.prevDataset=null;
  }
- state.docsLoading=false;state.docsError='';
+ state.docsLoading=false;state.syncProgress='';state.syncError='';state.docsError='';state.page=1;state.docsPage=1;
+ scopedCache=null;
 }
-/** O token permanece somente na variável local desta requisição. */
+function mergeOverviewResponses(responses){
+ const keys=['viagens','pedidos','ctes','mdfes','rotas','programacoes','ocorrencias'];
+ const data=Object.fromEntries(keys.map(k=>[k,responses.flatMap(r=>r.data[k]||[])]));
+ data.sources=responses.reduce((acc,r)=>({...acc,...r.data.sources}),{});
+ return normalizePayload({mode:'live',data});
+}
+/** Só confirma a sincronização se NFS-e e TODAS as consultas mensais tiverem sucesso. */
 async function synchronizeElectronicDocuments(token){
  const epoch=++documentsSyncEpoch,from=state.from,to=state.to;
- state.docsSyncOpen=false;state.docsLoading=true;state.docsError='';render();
+ state.docsSyncOpen=false;state.docsLoading=true;state.docsError='';state.syncError='';
+ state.syncProgress='Consultando DSS...';render();
  try{
-  const rows=await fetchAuthorizedDocuments({token,from,to});
-  if(epoch!==documentsSyncEpoch)return;
-  state.docsRows=rows;state.docsSource='live';
-  state.docsUpdatedAt=new Date().toLocaleString('pt-BR');
+  const windows=splitMonths(from,to),results=new Array(windows.length);
+  let next=0,done=0;
+  const worker=async()=>{
+   while(next<windows.length){
+    const idx=next++;
+    const w=windows[idx];results[idx]=await fetchAuthorizedOverview({token,from:w.from,to:w.to});
+    if(epoch===documentsSyncEpoch){done++;state.syncProgress='DSS: '+done+'/'+windows.length+' períodos';render();}
+   }
+  };
+  const [rows]=await Promise.all([
+   fetchAuthorizedDocuments({token,from,to}),
+   Promise.all(Array.from({length:Math.min(2,windows.length)},worker))
+  ]);
+  if(epoch!==documentsSyncEpoch||from!==state.from||to!==state.to)return;
+  const normalized=mergeOverviewResponses(results);
+  // Commit atômico: não misturar dados de fontes e períodos diferentes.
+  state.dataset=normalized;state.docsRows=rows;state.mode='live';state.docsSource='live';
+  state.loadedRange={from,to};state.docsUpdatedAt=new Date().toLocaleString('pt-BR');
+  state.lastSync=new Date().toISOString();state.prevDataset=null;state.comparison=null;
+  state.page=1;state.docsPage=1;scopedCache=null;
+  // Comparativos entre dois subperíodos dos dados já sincronizados.
+  const start=new Date(from+'T12:00:00Z'),end=new Date(to+'T12:00:00Z');
+  const mid=new Date(start.getTime()+Math.floor((end.getTime()-start.getTime())/2));
+  const midDate=mid.toISOString().slice(0,10);
+  const nextDay=new Date(mid.getTime()+86400000).toISOString().slice(0,10);
+  state.comparePreviousFrom=from;state.comparePreviousTo=midDate;
+  state.compareCurrentFrom=nextDay<=to?nextDay:midDate;state.compareCurrentTo=to;
  }catch(error){
   if(epoch!==documentsSyncEpoch)return;
-  state.docsError=String(error?.message||'Falha de sincronização com DSS.').slice(0,240);
+  const msg=String(error?.message||'O DSS não respondeu.').slice(0,240);
+  state.syncError=msg;state.docsError=msg;
  }finally{
-  if(epoch===documentsSyncEpoch){state.docsLoading=false;render();}
+  if(epoch===documentsSyncEpoch){state.docsLoading=false;state.syncProgress='';render();}
  }
 }
 function exportAdvanced(type,format){
@@ -817,6 +862,15 @@ root.addEventListener('click',e=>{
   if(action==='load-comparison'){fetchPeriodComparison();return;}
   render();return;
  }
+ const docSort=e.target.closest('[data-doc-sort]');
+ if(docSort){
+  const key=docSort.dataset.docSort;
+  if(['valorFinal','totalIss','dataEmissao','parceiro','numeroNfse','fatura','status','tipoOperacao','modelo','pontoApoio'].includes(key)){
+   state.docsSortDir=state.docsSortKey===key&&state.docsSortDir==='desc'?'asc':'desc';
+   state.docsSortKey=key;state.docsPage=1;render();
+  }
+  return;
+ }
  const nav=e.target.closest('[data-nav]');if(nav){if(!permittedView(state.role,nav.dataset.nav))return;state.view=nav.dataset.nav;state.clientSelected='';state.routeSelected='';state.driverSelected='';state.globalQuery='';state.search='';state.filter='todos';state.sortKey='';state.page=1;state.menu=false;state.selected=null;render();if(state.view==='administracao'&&state.permissions.admin)loadAdminUsers();return;}
  const sorter=e.target.closest('[data-sort-metric]');
  if(sorter){
@@ -848,11 +902,15 @@ root.addEventListener('click',e=>{
  if(action==='menu'){state.menu=!state.menu;render();}
  if(action==='refresh'&&!PUBLIC_DEMO)loadData();
  if(action==='docs-csv'){
-  const name='COSTALOG_NFSE_'+state.from+'_'+state.to+'_'+(state.docsSource==='live'?'DSS':'DEMO')+'.csv';
+  const name='COSTALOG_NFSE_'+state.from+'_'+state.to+'_'+(state.mode==='live'?'DSS':'DEMO')+'.csv';
   downloadFile(docsCsv(state.docsRows,state),name,'text/csv;charset=utf-8');
  }
  if(action==='docs-sync-open'&&!state.docsLoading){state.docsSyncOpen=true;render();document.getElementById('docsSyncToken')?.focus();}
  if(action==='docs-sync-cancel'){state.docsSyncOpen=false;render();}
+ if(action==='docs-clear-filters'){state.docsStatus='';state.docsModel='';state.docsSortKey='valorFinal';state.docsSortDir='desc';state.docsPage=1;state.search='';render();}
+ if(action==='docs-prev'&&state.docsPage>1){state.docsPage--;render();}
+ if(action==='docs-next'){state.docsPage++;render();}
+ if(action==='clear-search'){state.search='';state.page=1;state.docsPage=1;render();}
  if(action==='docs-sync-backdrop'&&e.target===act){state.docsSyncOpen=false;render();}
  if(action==='reload-users')loadAdminUsers();
  if(action==='close-admin-reset'){state.adminResetUser='';render();}
@@ -922,6 +980,10 @@ root.addEventListener('change',e=>{
  if(e.target.id==='filterPlate'){state.vehicle=e.target.value;state.page=1;render();}
  if(e.target.id==='filterType'){state.serviceType=e.target.value;state.page=1;render();}
  if(e.target.id==='sortDir'){state.sortDir=e.target.value;state.page=1;render();}
+ if(e.target.id==='docsSortKey'){state.docsSortKey=e.target.value;state.docsPage=1;render();}
+ if(e.target.id==='docsSortDir'){state.docsSortDir=e.target.value;state.docsPage=1;render();}
+ if(e.target.id==='docsStatus'){state.docsStatus=e.target.value;state.docsPage=1;render();}
+ if(e.target.id==='docsModel'){state.docsModel=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='autoRefresh'){state.autoRefresh=0;activateRefresh();render();}
  if(e.target.id==='reportSelected'){state.reportSelected=e.target.value;render();}
  if(e.target.id==='reportMulti'){state.reportMulti=e.target.value==='all';render();}
@@ -955,7 +1017,7 @@ root.addEventListener('input',e=>{
   return;
  }
  if(e.target.id==='searchInput'){
-  const start=e.target.selectionStart;state.search=e.target.value;state.page=1;render();
+  const start=e.target.selectionStart;state.search=e.target.value;state.page=1;state.docsPage=1;render();
   const input=document.getElementById('searchInput');if(input){input.focus();input.setSelectionRange(start,start);}
  }
 });

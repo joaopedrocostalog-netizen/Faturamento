@@ -23,3 +23,26 @@ export async function fetchAuthorizedDocuments({token,from,to,fetchImpl=fetch,ap
  if(!payload||!Array.isArray(payload.registros))throw Error('O Render não retornou registros de documentos válidos.');
  return payload.registros;
 }
+
+/** Consulta autenticada e exclusiva de leitura para as abas do Faturamento. */
+export async function fetchAuthorizedOverview({token,from,to,fetchImpl=fetch,apiUrl=FATURAMENTO_RENDER_API}){
+ if(typeof token!=='string'||token.trim().length<12)throw Error('Informe um token privado válido para sincronizar.');
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(from)||!/^\d{4}-\d{2}-\d{2}$/.test(to)||from>to)
+  throw Error('Selecione um período válido nos filtros.');
+ const endpoint=new URL('/api/overview',apiUrl);
+ endpoint.searchParams.set('from',from);endpoint.searchParams.set('to',to);
+ endpoint.searchParams.set('refresh','recent');endpoint.searchParams.set('sync_to',to);
+ let response;
+ try{
+  response=await fetchImpl(endpoint.toString(),{method:'GET',
+   headers:{Authorization:'Bearer '+token.trim(),Accept:'application/json'},
+   cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(90000)});
+ }catch{throw Error('Falha de rede ou tempo limite ao consultar faturamento no Render.');}
+ let payload;
+ try{payload=await response.json();}catch{throw Error('Resposta inválida do Render ao consultar faturamento.');}
+ if(response.status===401)throw Error('Token de sincronização não autorizado no Render.');
+ if(!response.ok)throw Error(String(payload?.error||'Erro HTTP '+response.status+' no DSS.').slice(0,230));
+ if(!payload?.data||!Array.isArray(payload.data.viagens)||!Array.isArray(payload.data.pedidos))
+  throw Error('O Render devolveu dados de faturamento incompletos.');
+ return payload;
+}

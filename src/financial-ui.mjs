@@ -36,7 +36,8 @@ export function renderFinanceComparison(data,state){
  const current={from:state.compareCurrentFrom,to:state.compareCurrentTo};
  const previous={from:state.comparePreviousFrom,to:state.comparePreviousTo};
  let c=state.comparison;
- if(state.mode==='demo')c={currentRange:current,previousRange:previous,current:subsetPeriod(state.dataset,current),previous:subsetPeriod(state.dataset,previous)};
+ const inLoaded=state.loadedRange&&[current.from,current.to,previous.from,previous.to].every(x=>x>=state.loadedRange.from&&x<=state.loadedRange.to);
+ if(state.mode==='demo'||inLoaded)c={currentRange:current,previousRange:previous,current:subsetPeriod(state.dataset,current),previous:subsetPeriod(state.dataset,previous)};
  const ready=c&&c.currentRange?.from===current.from&&c.currentRange?.to===current.to&&c.previousRange?.from===previous.from&&c.previousRange?.to===previous.to;
  const left=ready?comparisons(c.current):[],right=ready?comparisons(c.previous):[];
  const lines=left.map((m,i)=>{
@@ -48,7 +49,7 @@ export function renderFinanceComparison(data,state){
  return '<section class="ins-module"><div class="ins-toolbar"><div><h2>COMPARATIVO DE FATURAMENTO</h2><p>Compare pedidos, valores de fretes e situação de faturamento entre dois períodos.</p></div></div>'+
  '<div class="ins-compare-anchor"><label>Período A: de <input type="date" id="compareCurrentFrom" value="'+esc(current.from)+'"></label><label>Até <input type="date" id="compareCurrentTo" value="'+esc(current.to)+'"></label><label>Período B: de <input type="date" id="comparePreviousFrom" value="'+esc(previous.from)+'"></label><label>Até <input type="date" id="comparePreviousTo" value="'+esc(previous.to)+'"></label></div>'+
  '<div class="ins-period-label"><div><small>PERÍODO A</small><strong>'+esc(date(current.from))+' a '+esc(date(current.to))+'</strong></div><div><small>PERÍODO B</small><strong>'+esc(date(previous.from))+' a '+esc(date(previous.to))+'</strong></div></div>'+
- (state.mode==='live'&&!ready?'<div class="ins-compare-init"><p>Consulte os períodos no DSS para comparar dados reais.</p><button class="btn btn-red" data-ins-action="load-comparison">Consultar os dois períodos</button></div>':'')+
+ (state.mode==='live'&&!ready?'<div class="ins-compare-init"><p>Selecione ambos os períodos dentro do intervalo sincronizado ('+esc(state.loadedRange?.from||'—')+' a '+esc(state.loadedRange?.to||'—')+'). Para outras datas, sincronize novamente no topo.</p></div>':'')+
  (state.comparisonLoading?'<p class="ins-hint">Consultando DSS...</p>':'')+(state.comparisonError?'<p class="ins-inline-error">'+esc(state.comparisonError)+'</p>':'')+
  (ready?'<div class="ins-responsive-table"><table><thead><tr><th>Indicador</th><th>Período A</th><th>Período B</th><th>Diferença</th><th>Variação</th></tr></thead><tbody>'+lines+'</tbody></table></div>':'')+
  '<p class="ins-hint">Frete informado não comprova recebimento. Valores ausentes não são tratados como zero; variações com base zero não são calculadas.</p></section>';

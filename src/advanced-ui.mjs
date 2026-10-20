@@ -38,8 +38,10 @@ function section(title,sub,content){return '<section class="card"><div class="ca
 function cell(v,fmt){if(fmt==='money')return h(brl(v));if(fmt==='number')return h(num(v));if(fmt==='date')return h(dt(v));if(fmt==='bool')return h(b(v));return h(v===null||v===undefined||v===''?'—':v);}
 export function tableAdvanced(rows,columns,s,view){
  const active=columns.filter(c=>!(s.hiddenColumns?.[view]||[]).includes(c.key));
- const head=active.map(c=>'<th><button class="sort-link" data-sort="'+h(c.key)+'" title="Ordenar por '+h(c.label)+'">'+h(c.label)+' '+(s.sortKey===c.key?(s.sortDir==='asc'?'↑':'↓'):'↕')+'</button></th>').join('');
- const sorted=sortRecords(rows,s.sortKey||columns[0].key,s.sortDir||'desc');
+ const head=active.map(c=>'<th><button class="sort-link" data-sort="'+h(c.key)+'" title="Ordenar por '+h(c.label)+'">'+h(c.label)+' '+((s.sortKey||((view==='faturamento'?'valorReceber':view==='ctes'?'valor':'freight')))===c.key?(s.sortDir==='asc'?'↑':'↓'):'↕')+'</button></th>').join('');
+ const defaultKey=view==='faturamento'?'valorReceber':view==='ctes'?'valor':'freight';
+ const chosen=columns.some(c=>c.key===s.sortKey)?s.sortKey:columns.some(c=>c.key===defaultKey)?defaultKey:columns[0].key;
+ const sorted=sortRecords(rows,chosen,s.sortDir||'desc');
  const total=sorted.length;const limit=25,pageCount=Math.max(1,Math.ceil(total/limit)),page=Math.min(Math.max(1,s.page||1),pageCount);
  const pageRows=sorted.slice((page-1)*limit,page*limit);
  const body=pageRows.map(row=>'<tr>'+active.map(c=>{

@@ -45,3 +45,7 @@ A nova rota não exige MariaDB: consulta o DSS sob demanda e devolve os document
 
 ### Token de sincronização com privilégios mínimos
 O botão do site utiliza `DSS_NFSE_SYNC_TOKEN` (segredo separado de `PORTAL_ACCESS_TOKEN`). Esse Bearer concede acesso **somente** ao endpoint de documentos eletrônicos, após validação no Node.js. Cadastre uma sequência aleatória de no mínimo 32 caracteres na aba **Environment** do Render; informe no formulário somente quando for sincronizar.
+
+
+## Sincronização de todo o Faturamento
+O botão global do painel substituiu o botão local da aba NFS-e. O mesmo `DSS_NFSE_SYNC_TOKEN` autoriza apenas os GETs `/api/documentos-eletronicos` e `/api/overview`, retornando os dados para todas as abas. O token não concede ações administrativas e nunca é armazenado no navegador. Pedidos/RVs exigem `DSS_VIAGENS_PATH` e `DSS_PEDIDOS_PATH` válidos e as permissões pertinentes no DSS. O site exibe um erro quando alguma das fontes não pode ser consultada e não mistura os conjuntos de dados. Para uso corporativo contínuo, prefira SSO/VPN.

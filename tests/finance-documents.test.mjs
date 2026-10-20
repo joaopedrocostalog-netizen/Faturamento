@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {normalizeElectronicDocuments,isoEmissionDate,summaryElectronicDocuments} from '../src/e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,filteredElectronicDocuments,docsCsv} from '../src/e-documents-ui.mjs';
-import {fetchAuthorizedDocuments,FATURAMENTO_RENDER_API} from '../src/dss-sync.mjs';
+import {fetchAuthorizedDocuments,fetchAuthorizedOverview,FATURAMENTO_RENDER_API} from '../src/dss-sync.mjs';
 import {queryElectronicDocuments,DocumentQueryError} from '../api/e-documents.mjs';
 const sample={status:200,apiVersion:1,mensagemErro:'',qtd_registros:2,registros:[
 {id:0,parceiro:'Teste A',tipo_operacao:'Serviços',numero_nfse:'101',modelo:'NFS-e',status:'Emitida',data_emissao:'10/10/2026',valor_final:1300.25,total_iss:65.01,fatura:'F-001',ponto_apoio:'Santos'},
@@ -59,7 +59,11 @@ test('Tabela NFS-e, filtros, indicadores e CSV preservam separação do portal',
  assert(html.includes('EXEMPLOS')||html.includes('DEMONSTRAÇÃO'));
  assert(html.includes('CLIENTE EXEMPLO')===false);
  assert(html.includes('Teste B'));assert(!html.includes('Teste A'));
- assert(html.includes('EXPORTAR DOCUMENTOS CSV'));
+ assert(html.includes('EXPORTAR CSV'));
+ assert(html.includes('id="docsSortKey"'));
+ assert(html.includes('data-doc-sort="valorFinal"'));
+ assert(!html.includes('data-action="docs-sync-open"'));
+ assert(html.includes('id="docsStatus"'));
  const malicious=normalizeElectronicDocuments({status:200,registros:[{numero_nfse:'<script>alert(1)</script>',parceiro:'=HYPERLINK("x")',data_emissao:'10/10/2026',valor_final:0}]});
  assert(!renderElectronicDocuments(malicious,{...state,from:''}).includes('<script>'));
  assert(docsCsv(malicious,{...state,from:''}).includes("'=HYPERLINK"));
@@ -86,7 +90,7 @@ test('Endpoint HTTP permanece protegido e senha não aparece no bundle público'
 
 test('Botão de sincronizar NFS-e e formulário de autorização em memória',()=>{
  const html=renderElectronicDocuments(normalizeElectronicDocuments(sample),{mode:'demo',docsSource:'demo',docsLoading:false,docsError:'',from:'2026-10-01',to:'2026-10-20'});
- assert(html.includes('data-action="docs-sync-open"'));
+ assert(!html.includes('data-action="docs-sync-open"'));
  assert(html.includes('SINCRONIZAR COM DSS'));
  assert(html.includes('DEMONSTRAÇÃO'));
  const modal=renderDocumentsSyncDialog({from:'2026-10-01',to:'2026-10-20'});
@@ -116,4 +120,34 @@ test('Falhas de token e servidor não aparentam sincronização bem-sucedida',as
  await assert.rejects(()=>fetchAuthorizedDocuments({token:'curto',from:'2026-10-01',to:'2026-10-20'}),/token privado/i);
  await assert.rejects(()=>fetchAuthorizedDocuments({token:'token-comprido-teste',from:'2026-10-01',to:'2026-10-20',fetchImpl:async()=>({status:401,ok:false,json:async()=>({error:'Não autorizado'})})}),/Token não autorizado/);
  await assert.rejects(()=>fetchAuthorizedDocuments({token:'token-comprido-teste',from:'2026-10-01',to:'2026-10-20',fetchImpl:async()=>({status:503,ok:false,json:async()=>({error:'DSS_DOCUMENTOS_PATH ausente'})})}),/DSS_DOCUMENTOS_PATH/);
+});
+
+test('Tabela NFS-e ordena valor final numericamente e filtra por situação/termo',()=>{
+ const rows=normalizeElectronicDocuments(sample);
+ let ordered=filteredElectronicDocuments(rows,{from:'2026-10-01',to:'2026-10-20',search:''});
+ assert.deepEqual(ordered.map(x=>x.numeroNfse),['101','102']);
+ ordered=filteredElectronicDocuments(rows,{from:'2026-10-01',to:'2026-10-20',docsSortKey:'valorFinal',docsSortDir:'asc'});
+ assert.deepEqual(ordered.map(x=>x.numeroNfse),['102','101']);
+ assert.equal(filteredElectronicDocuments(rows,{docsStatus:'Pendente'}).length,1);
+ assert.equal(filteredElectronicDocuments(rows,{search:'TESTE A'}).length,1);
+ assert.equal(filteredElectronicDocuments(rows,{search:'1300.25'}).length,1);
+});
+test('Token autoriza leitura global de overview, mas não endpoints administrativos',async()=>{
+ const code=readFileSync('api/server.mjs','utf8');
+ const marker=code.slice(code.indexOf("if(url.pathname!=='/api/overview')"));
+ assert(marker.includes('const syncByToken=docsSyncAuthorized(req)'));
+ assert(marker.includes("const overviewRole=syncByToken?'financeiro':user.role;"));
+ assert(marker.includes('projectOverview(payload,overviewRole)'));
+ assert(marker.includes('projectOverview({...cached,cacheHit:true},overviewRole)'));
+ assert(!code.slice(code.indexOf("if(url.pathname==='/api/users'"),code.indexOf("if(url.pathname==='/api/documentos-eletronicos')")).includes('docsSyncAuthorized'));
+ let calls=0;
+ const token='token-privado-teste-global-2026';
+ const overview=await fetchAuthorizedOverview({token,from:'2026-10-01',to:'2026-10-20',fetchImpl:async(url,opts)=>{
+  calls++;assert(url.includes('/api/overview?from=2026-10-01&to=2026-10-20'));
+  assert(url.includes('refresh=recent'));
+  assert.equal(opts.headers.Authorization,'Bearer '+token);
+  return {status:200,ok:true,json:async()=>({data:{viagens:[],pedidos:[]}})};
+ }});
+ assert.equal(calls,1);assert.equal(overview.data.pedidos.length,0);
+ await assert.rejects(()=>fetchAuthorizedOverview({token,from:'2026-10-01',to:'2026-10-20',fetchImpl:async()=>({status:401,ok:false,json:async()=>({error:'negado'})})}),/não autorizado/);
 });

@@ -400,8 +400,13 @@ const server=http.createServer(async(req,res)=>{
   return reply(res,200,{kind,from,to,page:Math.min(page,pages),pageSize:size,total,pages,rows:rows.slice((Math.min(page,pages)-1)*size,Math.min(page,pages)*size),source:'cache'},origin,req.headers['accept-encoding']||'');
  }
  if(url.pathname!=='/api/overview')return reply(res,404,{error:'Rota não encontrada'},origin);
- if(!user)return reply(res,401,{error:'Sessão inválida ou expirada'},origin);
- if(user.mustChangePassword)return reply(res,403,{error:'Altere sua senha provisória antes de consultar o DSS.',code:'PASSWORD_CHANGE_REQUIRED'},origin);
+ // Token exclusivo de sincronização autoriza leitura das fontes do Faturamento,
+ // mas não os endpoints administrativos nem alterações de dados.
+ const syncByToken=docsSyncAuthorized(req);
+ if(!user&&!syncByToken)return reply(res,401,{error:'Token de sincronização ou sessão inválida'},origin);
+ if(user?.mustChangePassword&&!syncByToken)return reply(res,403,{error:'Altere sua senha provisória antes de consultar o DSS.',code:'PASSWORD_CHANGE_REQUIRED'},origin);
+ if(!syncByToken&&!user?.permissions?.financeiro)return reply(res,403,{error:'Perfil Financeiro necessário'},origin);
+ const overviewRole=syncByToken?'financeiro':user.role;
  if(!allowedRate(req))return reply(res,429,{error:'Limite de consultas atingido. Aguarde um minuto e tente novamente.'},origin);
  if(!base)return reply(res,503,{error:'DSS_BASE_URL não configurado no servidor privado.'},origin);
  if(!dssCredentialsReady())return reply(res,503,{error:'Basic Auth do DSS não configurado no backend. Informe DSS_USERNAME e DSS_PASSWORD no arquivo .env privado.'},origin);
@@ -411,7 +416,7 @@ const server=http.createServer(async(req,res)=>{
  const forceRefresh=refreshMode==='1'||refreshMode==='recent';
  const cacheKey=from+'|'+to+(forceRefresh?'|refresh':'');
  const cached=forceRefresh?null:cacheGet(cacheKey);
- if(cached){apiStats.cached++;return reply(res,200,projectOverview({...cached,cacheHit:true},user.role),origin,req.headers['accept-encoding']||'');}
+ if(cached){apiStats.cached++;return reply(res,200,projectOverview({...cached,cacheHit:true},overviewRole),origin,req.headers['accept-encoding']||'');}
  const started=Date.now();
  let pending=INFLIGHT.get(cacheKey);
  if(!pending){
@@ -484,7 +489,7 @@ const server=http.createServer(async(req,res)=>{
  }else console.info('[DSS] consulta idêntica reutilizada, período',from,to);
  try{
   const payload=await pending;
-  return reply(res,200,projectOverview(payload,user.role),origin,req.headers['accept-encoding']||'');
+  return reply(res,200,projectOverview(payload,overviewRole),origin,req.headers['accept-encoding']||'');
  }catch(err){
   apiStats.failed++;apiStats.lastFailure=new Date().toISOString();
   console.error('[DSS]',err.name,err.message);

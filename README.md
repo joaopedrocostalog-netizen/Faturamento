@@ -34,9 +34,18 @@ A nova aba traz pesquisa, filtro por emissão, listagem, totais de valor final e
 
 O backend dispõe de `GET /api/documentos-eletronicos` autenticado. O serviço está descrito em [INTEGRACAO_DOCUMENTOS_NFSE.md](./INTEGRACAO_DOCUMENTOS_NFSE.md), e o [render.yaml](./render.yaml) define o Blueprint para o Render. A rota específica da operação no DSS precisa ser confirmada no Swagger antes de consultas reais. Nenhuma credencial deve ser colocada no frontend público.
 
-## Botão «Sincronizar com DSS» (Documentos / NFS-e)
-O botão fica sempre visível em **Documentos / NFS-e**, inclusive no site aberto sem login. O visitante só vê exemplos fictícios até solicitar sincronização e informar, na janela de autorização, **um token privado do backend**. O token é usado apenas na requisição HTTPS e **não** é armazenado no navegador. O serviço Render `https://faturamento-sq74.onrender.com` exige Bearer autorizado e acesso com permissão Financeiro; somente os documentos NFS-e passam ao modo de dados reais depois de uma resposta HTTP 200 válida.
+## Sincronização global com DSS
+O único botão **SINCRONIZAR COM DSS** está ao lado das datas, em todas as abas do Faturamento. Ele solicita um token privado com permissão **exclusivamente de consulta** e atualiza em uma mesma operação: Painel, Faturamento, Documentos / NFS-e, Pedidos / CT-e, Clientes / Fretes e Comparativos.
 
-**Para habilitar a consulta:** configure **Environment → `DSS_NFSE_SYNC_TOKEN`** com uma sequência aleatória de pelo menos 32 caracteres. Este token só autoriza `/api/documentos-eletronicos`, não concede acesso administrativo nem libera as demais APIs. Se o backend já usa sessão pessoal com perfil Financeiro, ela também é aceita. Nunca use a senha DSS no formulário. `DSS_DOCUMENTOS_PATH`, `DSS_BASE_URL` e as credenciais DSS permanecem no Render. A origem GitHub Pages é permitida por CORS, mas nunca obtém dados sem Bearer autorizado.
+- A consulta utiliza o serviço protegido no Render e as mesmas datas para documentos fiscais e relatórios de frete/pedidos.
+- O frontend faz consultas mensais de pedidos/RVs (até 12 meses) em paralelo, limitando o número de requisições, e consulta NFS-e. Só substitui o conjunto de dados após todas as consultas terminarem sem erro.
+- O token `DSS_NFSE_SYNC_TOKEN` (mínimo 32 caracteres) é usado via Bearer apenas em `GET /api/documentos-eletronicos` e `GET /api/overview`. Não autoriza administração, cadastro de usuários, diagnóstico ou endpoints de registros.
+- As demais credenciais DSS ficam nas variáveis privadas do Render. O token de sincronização não é salvo em localStorage ou sessão do navegador.
+- Quando o período é alterado, todos os dados sincronizados são descartados e o portal volta ao modo demonstração, evitando a mistura de informações de períodos diferentes.
+- Ao falhar qualquer consulta, o site informa o erro e mantém o conjunto anterior, sem declarar a nova sincronização concluída.
+- A pesquisa separada dos filtros de data é contextual: pedido/fatura, NFS-e/parceiro, CT-e e clientes. A ordenação das tabelas pode ser alterada clicando nas colunas. A NFS-e começa pelo maior valor final, com filtros de status, modelo, ordenação ascendente/descendente e paginação. O Faturamento prioriza o maior valor a receber.
 
-Ao alterar o intervalo de datas depois de uma sincronização, o sistema limpa os dados reais carregados anteriormente e solicita nova consulta. Nenhuma outra aba passa a usar valores reais automaticamente. Se o token estiver errado ou o DSS falhar, a tela mostra o motivo e não declara sincronização bem-sucedida.
+**Privacidade:** o site do GitHub Pages permanece aberto sem login e usa dados fictícios antes de uma sincronização autorizada. Depois de sincronizar, a guia passa a exibir dados reais corporativos a quem estiver olhando a tela. Não compartilhe o token, não use o portal em dispositivos públicos e considere SSO/VPN para a versão corporativa definitiva.
+
+### Preparação no Render
+É necessário configurar `DSS_BASE_URL`, `DSS_USERNAME`, `DSS_PASSWORD`, `DSS_DOCUMENTOS_PATH` e `DSS_NFSE_SYNC_TOKEN`. Os endpoints `DSS_VIAGENS_PATH` e `DSS_PEDIDOS_PATH` devem corresponder às operações já utilizadas no portal Viagens-PF. A falta de qualquer fonte gera erro informativo, não dados fictícios apresentados como reais.

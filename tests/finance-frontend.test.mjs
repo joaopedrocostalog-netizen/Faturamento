@@ -1,73 +1,71 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-test('Abre diretamente o faturamento sem formulário de login e com abas financeiras futuras ocultas',async()=>{
- const events={},root={innerHTML:'',addEventListener(k,f){events[k]=f;}},storage=new Map();
+test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temporário',async()=>{
+ const events={},storage=new Map(),root={innerHTML:'',addEventListener(k,f){events[k]=f;}};
  const syncToken={value:'autorizacao-temporaria-teste-2026',focus(){}};
  globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
  globalThis.window={location:{protocol:'https:',origin:'https://empresa.github.io',hostname:'empresa.github.io'}};
  globalThis.alert=()=>{};globalThis.confirm=()=>true;
  globalThis.document={getElementById:id=>id==='app'?root:id==='docsSyncToken'?syncToken:null,addEventListener(){},visibilityState:'visible'};
- globalThis.fetch=async()=>{throw Error('O frontend público nunca deve buscar dados DSS protegidos');};
- await import('../src/app.js?finance-public=1');
- assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
- assert(root.innerHTML.includes('ACESSO LIVRE'));
- assert(root.innerHTML.includes('data-nav="faturamento"'));
- assert(root.innerHTML.includes('data-nav="clientes"'));
- assert(!root.innerHTML.includes('data-nav="relatorios"'));
- assert(!root.innerHTML.includes('data-nav="analises"'));
- assert(!root.innerHTML.includes('EXPORTAR RELATÓRIOS'));
- assert(!root.innerHTML.includes('ANÁLISES FINANCEIRAS'));
- assert(root.innerHTML.includes('GESTÃO DE FATURAMENTO'));
- assert(root.innerHTML.includes('>PAINEL '));
- assert(!root.innerHTML.includes('Acesso financeiro restrito'));
- assert(!root.innerHTML.includes('loginForm'));
- assert(!root.innerHTML.includes('data-action="connect"'));
- assert(!root.innerHTML.includes('data-action="logout"'));
- assert(root.innerHTML.includes('DEMONSTRAÇÃO'));
- for(const view of ['viagens','veiculos','motoristas','rotas','mdfes','administracao'])assert(!root.innerHTML.includes('data-nav="'+view+'"'));
- const nav=e=>events.click({target:{closest:q=>q==='[data-nav]'?{dataset:{nav:e}}:null}});
- nav('faturamento');
- assert(root.innerHTML.includes('data-nav="faturamento"'));
- nav('relatorios');
- assert(!root.innerHTML.includes('RELATÓRIOS FINANCEIROS'));
- nav('analises');
- assert(!root.innerHTML.includes('ANÁLISES FINANCEIRAS'));
- nav('comparativos');
- assert(root.innerHTML.includes('COMPARATIVO DE FATURAMENTO'));
- assert(!root.innerHTML.includes('data-nav="relatorios"'));
- assert(!root.innerHTML.includes('data-nav="analises"'));
- nav('painel');
- assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
- assert(!root.innerHTML.includes('data-nav="relatorios"'));
- // Apenas uma ação explícita pode consultar NFS-e reais.
- nav('documentos');
- assert(root.innerHTML.includes('SINCRONIZAR COM DSS'));
- const action=id=>events.click({target:{dataset:{},closest:q=>q==='[data-action]'?{dataset:{action:id}}:null}});
- action('docs-sync-open');
- assert(root.innerHTML.includes('id="docsSyncForm"'));
  let count=0;
+ globalThis.fetch=async()=>{throw Error('Não buscar DSS automaticamente na abertura pública');};
+ await import('../src/app.js?finance-global-sync=1');
+ assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
+ assert(root.innerHTML.includes('SINCRONIZAR COM DSS'));
+ assert(root.innerHTML.includes('id="from"'));assert(root.innerHTML.includes('id="to"'));
+ assert(!root.innerHTML.includes('loginForm'));
+ assert(!root.innerHTML.includes('data-nav="analises"'));
+ assert(!root.innerHTML.includes('data-nav="relatorios"'));
+ const nav=v=>events.click({target:{closest:q=>q==='[data-nav]'?{dataset:{nav:v}}:null}});
+ nav('documentos');
+ assert(root.innerHTML.includes('DOCUMENTOS ELETRÔNICOS / NFS-e'));
+ assert(!root.innerHTML.includes('data-action="docs-sync-open"'),'Sincronizar só na barra junto às datas');
+ assert(root.innerHTML.includes('id="docsSortKey"'));
+ assert(root.innerHTML.includes('Valor final'));
+ const action=id=>events.click({target:{dataset:{},closest:q=>q==='[data-action]'?{dataset:{action:id}}:null}});
+ nav('painel');action('docs-sync-open');
+ assert(root.innerHTML.includes('id="docsSyncForm"'));
  globalThis.fetch=async(url,options)=>{
   count++;
-  assert(url.startsWith('https://faturamento-sq74.onrender.com/api/documentos-eletronicos?'));
   assert.equal(options.headers.Authorization,'Bearer autorizacao-temporaria-teste-2026');
-  return {status:200,ok:true,json:async()=>({registros:[{id:'1',numeroNfse:'NFS-2026-900',parceiro:'PARCEIRO TESTE',dataEmissao:new Date().toISOString().slice(0,10),valorFinal:42}]})};
+  assert(url.startsWith('https://faturamento-sq74.onrender.com/api/'));
+  if(url.includes('/api/documentos-eletronicos?'))
+   return {status:200,ok:true,json:async()=>({registros:[{id:'1',numeroNfse:'NFS-2026-900',parceiro:'PARCEIRO TESTE',dataEmissao:'2026-10-19',valorFinal:42,totalIss:2}]})};
+  if(url.includes('/api/overview?'))
+   return {status:200,ok:true,json:async()=>({data:{
+    viagens:[],pedidos:[{pf_id:900,nro_pf:900,cliente_nome:'EMPRESA TESTE',data_emissao:'2026-10-19',total_frete_pedido_frete:250}],
+    ctes:[],mdfes:[],rotas:[],programacoes:[],ocorrencias:[],sources:{viagens:true,pedidos:true,ctes:false,mdfes:false}
+   }})};
+  throw Error('Consulta inesperada '+url);
  };
  let prevented=false;
  events.submit({target:{id:'docsSyncForm'},preventDefault(){prevented=true;}});
- await new Promise(resolve=>setTimeout(resolve,0));
- assert(prevented);assert.equal(count,1);
- assert.equal(syncToken.value,'','O segredo precisa sair do formulário após o uso');
- assert(root.innerHTML.includes('NFS-e SINCRONIZADAS COM DSS'));
- assert(root.innerHTML.includes('PARCEIRO TESTE'));
+ await new Promise(resolve=>setTimeout(resolve,10));
+ assert(prevented);assert(count>=2,'Deve buscar documentos e pedidos');
+ assert.equal(syncToken.value,'','Token não deve ficar no input');
+ assert(root.innerHTML.includes('DSS SINCRONIZADO'));
  assert(!root.innerHTML.includes('autorizacao-temporaria-teste-2026'));
+ nav('documentos');assert(root.innerHTML.includes('PARCEIRO TESTE'));
+ nav('faturamento');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
+ nav('ctes');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
+ nav('clientes');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
+ nav('comparativos');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
+ nav('painel');assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
  assert(!storage.has('docsSyncToken'));
- assert(!root.innerHTML.includes('data-nav="analises"'));
- nav('painel');
- assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
- assert(root.innerHTML.includes('AMBIENTE DE DEMONSTRAÇÃO'));
+ // Alterar período invalida a cópia real de TODAS as abas.
+ events.change({target:{id:'to',value:'2026-10-18'}});
+ assert(root.innerHTML.includes('DEMONSTRAÇÃO'));
+ assert(!root.innerHTML.includes('DSS SINCRONIZADO'));
+ nav('documentos');assert(!root.innerHTML.includes('PARCEIRO TESTE'));
 });
-test('A configuração publicada não aponta para backend privado',()=>{
+test('Botão público não inclui URL com token nem liga o backend automaticamente',()=>{
  const cfg=readFileSync('src/site-config.mjs','utf8');
  assert.match(cfg,/export const API_BASE_URL = '';/);
+ const app=readFileSync('src/app.js','utf8');
+ assert(app.includes('function renderSearchBar()'));
+ assert(app.includes('mergeOverviewResponses(results)'));
+ assert(app.includes("state.mode='live'"));
+ assert(app.includes('data-action="docs-sync-open"'));
+ assert(!app.includes('localStorage.setItem("docsSyncToken"'));
 });
