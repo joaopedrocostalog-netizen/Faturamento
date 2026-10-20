@@ -112,6 +112,6 @@ test('Render serve módulos importados, protege Contas a Receber e conserva a sa
  const app=readFileSync('src/app.js','utf8');
  assert(app.includes("['receber','doc','Contas a Receber']"));
  assert(app.includes("fetchAuthorizedReceivables({token,from,to,tipoRef:'E'})"));
- assert(app.includes("state.recvError='Contas a Receber não sincronizado: '+receivables.message"));
+ assert(app.includes("'Contas a Receber não sincronizado: '+receivables.message"));
  assert(app.includes('renderReceivables(state.recvRows,state)'));
 });

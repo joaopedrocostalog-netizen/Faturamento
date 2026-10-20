@@ -139,7 +139,7 @@ test('Token autoriza leitura global de overview, mas não endpoints administrati
  assert(marker.includes("const overviewRole=syncByToken?'financeiro':user.role;"));
  assert(marker.includes('projectOverview(payload,overviewRole)'));
  assert(marker.includes('projectOverview({...cached,cacheHit:true},overviewRole)'));
- assert(!code.slice(code.indexOf("if(url.pathname==='/api/users'"),code.indexOf("if(url.pathname==='/api/documentos-eletronicos')")).includes('docsSyncAuthorized'));
+ assert(!code.slice(code.indexOf("if(url.pathname==='/api/users'"),code.indexOf("if(url.pathname==='/api/receivables')")).includes('docsSyncAuthorized'),'Token limitado não pode acessar rotas administrativas');
  let calls=0;
  const token='token-privado-teste-global-2026';
  const overview=await fetchAuthorizedOverview({token,from:'2026-10-01',to:'2026-10-20',fetchImpl:async(url,opts)=>{
