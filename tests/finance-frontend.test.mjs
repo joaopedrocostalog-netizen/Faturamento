@@ -54,7 +54,7 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
  nav('painel');assert(root.innerHTML.includes('RESUMO DE FATURAMENTO'));
  assert(!storage.has('docsSyncToken'));
  // Alterar período invalida a cópia real de TODAS as abas.
- events.change({target:{id:'to',value:'2026-10-18'}});
+ events.change({target:{id:'to',value:'2026-10-18',dataset:{}}});
  assert(root.innerHTML.includes('DEMONSTRAÇÃO'));
  assert(!root.innerHTML.includes('DSS SINCRONIZADO'));
  nav('documentos');assert(!root.innerHTML.includes('PARCEIRO TESTE'));
