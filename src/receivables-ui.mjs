@@ -26,18 +26,39 @@ export function filteredReceivables(rows,state){
  });
  if(c.size>5)c.clear();c.set(ck,filtered);return filtered;
 }
-function barChart(title,rows,unit='money'){
- const entries=rows.slice(0,6),max=Math.max(0,...entries.map(x=>unit==='money'?x.value:x.count));
+/** O gráfico usa valor residual, valor nominal OU quantidade, sempre com título explícito.
+ * Não é permitido substituir R$ 0,00 do DSS por pagamentos inferidos.
+ */
+function barChart(title,rows,unit='money',metric='value'){
+ const entries=[...rows].sort((a,b)=>(b[metric]??0)-(a[metric]??0)||b.count-a.count).slice(0,6);
+ const max=Math.max(0,...entries.map(x=>unit==='count'?x.count:(x[metric]??0)));
  return '<section class="mgmt-chart"><div class="mgmt-chart-head"><h3>'+h(title)+'</h3></div><div class="mgmt-bars">'+
  (entries.length?entries.map(e=>{
-  const value=unit==='money'?e.value:e.count,width=max?Math.max(0,value/max*100):0;
-  return '<div class="mgmt-bar-row"><div class="mgmt-bar-top"><span>'+h(e.name)+'</span><strong>'+h(unit==='money'?brl(value):num(value))+'</strong></div>'+
-   '<div class="mgmt-bar-track"><div class="mgmt-bar-fill" style="width:'+Math.min(100,Math.max(0,width)).toFixed(1)+'%"></div></div><small>'+num(e.count)+' parcela(s)</small></div>';
+  const value=unit==='count'?e.count:e[metric],width=max?Math.max(0,value/max*100):0;
+  const known=metric==='face'?e.faceKnown:e.known;
+  const displayed=unit==='count'?num(value):(known?brl(value):'—');
+  return '<div class="mgmt-bar-row"><div class="mgmt-bar-top"><span title="'+h(e.name)+'">'+h(e.name)+'</span><strong>'+h(displayed)+'</strong></div>'+
+   '<div class="mgmt-bar-track"><div class="mgmt-bar-fill" style="width:'+Math.min(100,Math.max(0,width)).toFixed(1)+'%"></div></div>'+
+   '<small>'+num(e.count)+' parcela(s)'+(unit==='money'?' · '+num(known||0)+' valores presentes':'')+'</small></div>';
  }).join(''):'<p class="ins-hint">Sem dados para este gráfico.</p>')+'</div></section>';
+}
+function agingTable(rows){
+ return '<section class="mgmt-alerts"><h3>VENCIMENTOS E FAIXAS DE ATRASO</h3>'+
+ '<p>Valores residuais e nominais são apresentados separadamente. Uma parcela com valor residual zerado informado pelo DSS não é considerada saldo confirmado em aberto.</p>'+
+ '<div class="ins-responsive-table"><table><thead><tr><th>Faixa</th><th>Parcelas</th><th>Saldo residual informado</th><th>Valor nominal das parcelas</th></tr></thead>'+
+ '<tbody>'+rows.map(g=>'<tr><td>'+h(g.name)+'</td><td>'+num(g.count)+'</td><td>'+h(g.known?brl(g.value):'—')+'</td><td>'+h(g.faceKnown?brl(g.face):'—')+'</td></tr>').join('')+'</tbody></table></div></section>';
 }
 const card=(label,value,desc)=>'<article class="kpi"><div class="kpi-label">'+h(label)+'</div><div class="kpi-value">'+h(value)+'</div><div class="kpi-sub">'+h(desc)+'</div></article>';
 export function renderReceivables(rows,state){
  const r=filteredReceivables(rows,state),summary=receivablesSummary(r);
+ const financialMode=summary.residual!==0?'residual':summary.faceKnown>0&&summary.face!==0?'nominal':'count';
+ const allTypesMissing=summary.count>0&&summary.missingTypes===summary.count;
+ const notices=[
+  summary.paidWithoutAmount?num(summary.paidWithoutAmount)+' parcela(s) classificadas como pagas pelo DSS, mas com valorPagamento zerado ou ausente. O valor nominal NÃO será tratado como pagamento recebido.':'',
+  summary.openWithZeroResidual?num(summary.openWithZeroResidual)+' parcela(s) classificadas como abertas com valor nominal positivo, mas valorResidual = 0 informado pelo DSS. Saldo a receber não pode ser confirmado por esse campo.':'',
+  summary.missingTypes?num(summary.missingTypes)+' parcela(s) sem tipoFatura fornecido pelo DSS. O gráfico usa centro de custo como classificação alternativa quando nenhum tipo está disponível.':'',
+  summary.missingResidual?num(summary.missingResidual)+' parcela(s) sem saldo residual informado. Valores ausentes não são considerados zero.':''
+ ].filter(Boolean);
  const ref=state.recvRef||'E',source=state.recvSource==='live'?'DSS':state.recvSource==='unavailable'?'Consulta indisponível':'Demonstração';
  const statuses=[...new Set(rows.map(x=>x.situacaoFatura).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const fields=Object.entries(RECEIVABLE_FIELDS),sortKeys=['valor','valorResidual','valorPagamento','dataEmissao','dataVencimento','dataPagamento','parceiro','fatura','situacaoFatura','qtdDiasAberto'];
@@ -50,7 +71,9 @@ export function renderReceivables(rows,state){
  '<td><details class="recv-details"><summary>Ver campos</summary><div class="recv-details-grid">'+fields.map(([k,label])=>
  '<div><b>'+h(label)+'</b><span>'+h(RECEIVABLE_NUMBERS.includes(k)?(k==='qtdDiasAberto'?row[k]??'—':brl(row[k])):RECEIVABLE_DATES.includes(k)?dt(row[k]):row[k]||'—')+'</span></div>').join('')+
  '</div></details></td></tr>').join('');
- const warnings=state.recvError?'<div class="info-strip error">'+h(state.recvError)+'</div>':'';
+ const warnings=(state.recvError?'<div class="info-strip error">'+h(state.recvError)+'</div>':'')+
+ (notices.length?'<section class="recv-data-warning"><strong>CONFERÊNCIA DOS CAMPOS FINANCEIROS</strong><ul>'+notices.map(msg=>'<li>'+h(msg)+'</li>').join('')+'</ul>'+
+ '<p>Essas diferenças podem refletir campos não preenchidos na origem. Consulte a fatura no DSS antes de realizar cobranças.</p></section>':'');
  return '<section class="ins-module"><div class="section-title"><h2>CONTAS A RECEBER / PARCELAS</h2><span>'+h(source)+'</span></div>'+
  '<p class="ins-hint">Para períodos longos, o portal consulta o DSS mês a mês, sem mostrar totais incompletos. Em caso de tempo limite, o mês afetado será dividido em quinzenas automaticamente.</p>'+
  '<p class="ins-hint">A consulta considera '+h(GROUPS[ref][0].toLowerCase())+' no período selecionado. Selecione o referencial E / V / P para consultar emissão, vencimento ou pagamento. A opção P é exclusiva para parcelas pagas, conforme a documentação DSS.</p>'+
@@ -63,15 +86,27 @@ export function renderReceivables(rows,state){
  '<button type="button" class="btn" data-action="recv-clear">Limpar filtros</button></div>'+
  '<div class="v-search-row"><div class="v-search-field"><input id="recvSearchInput" type="search" class="control full" autocomplete="off" placeholder="Pesquise parceiro, parcela, fatura, CNPJ, conta ou qualquer campo..." value="'+h(state.recvSearch||'')+'"></div></div>'+
  '<div class="kpis">'+card('PARCELAS',num(summary.count),'Registros após filtros')+
- card('VALOR DAS PARCELAS',summary.faceKnown?brl(summary.face):'—',num(summary.faceKnown)+' valores informados')+
- card('VALOR DE PAGAMENTOS',summary.paidKnown?brl(summary.paid):'—','Informado pelo DSS; não somar a recebíveis')+
- card('SALDO RESIDUAL',summary.residualKnown?brl(summary.residual):'—',num(summary.residualKnown)+' saldos informados')+
- card('PARCELAS COM RESIDUAL',num(summary.openCount),'Saldo residual informado maior que zero')+
- card('VENCIDAS COM SALDO',num(summary.lateCount),summary.lateKnown?brl(summary.lateResidual)+' de residual':'Com vencimento anterior a hoje')+'</div>'+
- '<div class="mgmt-chart-grid">'+barChart('Saldo residual por parceiro',summary.parceiros)+
- barChart('Saldo por situação da fatura',summary.situacoes)+barChart('Saldo por mês do vencimento',summary.vencimentos)+
- barChart('Parcelas por tipo de fatura',summary.tipos,'count')+'</div>'+
- '<p class="ins-hint">Aviso: vencidas com saldo é uma sinalização calculada pela data de vencimento e valor residual da API. Não significa protesto, cobrança formal ou inadimplência confirmada. A ausência de valores permanece “—”, não zero.</p>'+
+ card('VALOR NOMINAL DAS PARCELAS',summary.faceKnown?brl(summary.face):'—',num(summary.faceKnown)+' valores informados')+
+ card('PAGAMENTO INFORMADO PELO DSS',summary.paidKnown?brl(summary.paid):'—',num(summary.paidKnown)+' valores preenchidos; conferir divergências')+
+ card('SALDO RESIDUAL INFORMADO',summary.residualKnown?brl(summary.residual):'—',num(summary.residualKnown)+' campos preenchidos')+
+ card('VENCIDAS COM SALDO',num(summary.lateCount),summary.lateKnown?brl(summary.lateResidual)+' em residual confirmado':'Somente saldos residuais positivos')+
+ card('A VENCER EM 7 DIAS',num(summary.dueSoonCount),brl(summary.dueSoonResidual)+' em residual confirmado')+
+ (summary.paidWithoutAmount?card('PAGAS SEM VALOR CONFIRMADO',num(summary.paidWithoutAmount),'Valor nominal associado: '+brl(summary.inferredPaidNominal)+' (não recebido confirmado)'):'')+
+ (summary.missingTypes?card('TIPO DE FATURA AUSENTE',num(summary.missingTypes),'Informação não preenchida na API'):'')+
+ '</div>'+
+ '<div class="mgmt-chart-grid">'+
+ (financialMode==='residual'?barChart('Saldo RESIDUAL informado por parceiro',summary.parceiros):
+  financialMode==='nominal'?barChart('Valor NOMINAL por parceiro (não é saldo)',summary.parceiros,'money','face'):
+  barChart('Quantidade de parcelas por parceiro (valores não disponíveis)',summary.parceiros,'count','count'))+
+ (financialMode==='residual'?barChart('Saldo RESIDUAL por situação da fatura',summary.situacoes):
+  barChart('Quantidade por situação da fatura',summary.situacoes,'count','count'))+
+ (financialMode==='residual'?barChart('Saldo RESIDUAL por mês de vencimento',summary.vencimentos):
+  financialMode==='nominal'?barChart('Valor NOMINAL por mês de vencimento',summary.vencimentos,'money','face'):
+  barChart('Quantidade de parcelas por mês de vencimento',summary.vencimentos,'count','count'))+
+ (allTypesMissing?barChart('Parcelas por centro de custo (tipo não informado)',summary.centros,'count','count'):
+  barChart('Parcelas por tipo de fatura informado',summary.tipos,'count','count'))+'</div>'+
+ agingTable(summary.aging)+
+ '<p class="ins-hint">Aviso: vencidas com saldo usa data de vencimento e valor residual confirmado na API. Valores nominais não são somados como pagamentos nem como saldo. Para interpretar inconsistências, consulte o DSS. Não significa inadimplência confirmada.</p>'+
  '<div class="ins-responsive-table recv-table"><table><thead><tr>'+colsHtml+'</tr></thead><tbody>'+
  (body||'<tr><td colspan="11">Nenhuma parcela encontrada para este período e filtros.</td></tr>')+'</tbody></table></div>'+
  '<div class="pagination"><span>'+num(r.length)+' parcelas · Página '+page+' de '+pages+' · 25 por página</span>'+
