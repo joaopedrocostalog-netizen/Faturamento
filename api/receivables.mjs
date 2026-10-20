@@ -3,6 +3,35 @@
  */
 import {validDate,dateToDss} from '../src/e-documents.mjs';
 import {normalizeReceivables} from '../src/receivables.mjs';
+/** Apenas contagens de preenchimento no JSON ORIGINAL: nenhum dado de clientes/parcelas em logs. */
+export function summarizeOriginalReceivableFields(registros=[]){
+ const wanted={
+  valorPagamento:['valorpagamento','valorpago','valorrecebido','valorbaixado','vlpagamento'],
+  valorResidual:['valorresidual','saldoresidual','saldodevedor','saldoemaberto','valoremaberto','valorpendente'],
+  valor:['valor','valorparcela','valordaparcela','valornominalparcela'],
+  tipoFatura:['tipofatura','tipodefatura','descricaotipofatura','tipofaturadescricao','tipodafatura']
+ };
+ const canon=k=>String(k).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
+ const output={total:registros.length};
+ for(const [name,keys] of Object.entries(wanted))output[name]={presente:0,ausente:0,zero:0,naoZero:0};
+ for(const row of registros){
+  if(!row||typeof row!=='object'||Array.isArray(row))continue;
+  const fields=new Map(Object.entries(row).map(([k,v])=>[canon(k),v]));
+  for(const [name,keys] of Object.entries(wanted)){
+   const match=keys.find(k=>fields.has(k)&&fields.get(k)!==null&&fields.get(k)!==undefined&&String(fields.get(k)).trim()!=='');
+   const counter=output[name];
+   if(!match){counter.ausente++;continue;}
+   counter.presente++;
+   const raw=fields.get(match);
+   if(name!=='tipoFatura'){
+    const numeric=typeof raw==='number'?raw:Number(String(raw).replace(/R\$|\s/g,'').replace(/\./g,'').replace(',','.'));
+    if(Number.isFinite(numeric)&&numeric===0)counter.zero++;
+    if(Number.isFinite(numeric)&&numeric!==0)counter.naoZero++;
+   }
+  }
+ }
+ return output;
+}
 export class ReceivablesQueryError extends Error{
  constructor(message,status=502){super(message);this.name='ReceivablesQueryError';this.status=status;}
 }
@@ -61,9 +90,12 @@ export async function queryReceivables({env=process.env,from='',to='',tipoRef='E
  if(Number(data?.status)===401)throw new ReceivablesQueryError('Autenticação DSS recusada.',502);
  if(Number(data?.status)===400)throw new ReceivablesQueryError('Filtro DSS recusado: '+String(data.mensagemErro||'erro de validação').slice(0,150),400);
  if(Number(data?.status)!==200)throw new ReceivablesQueryError('DSS retornou status '+String(data?.status??'desconhecido'),502);
+ const diagnostico=summarizeOriginalReceivableFields(data.registros);
+ // Somente dados agregados, sem valores monetários, nomes, CNPJ ou credenciais.
+ console.info('[DSS] receber cobertura de campos',JSON.stringify({tipoRef,from:from||'hoje',to:to||'hoje',...diagnostico}));
  let records;
  try{records=normalizeReceivables(data);}catch(e){throw new ReceivablesQueryError(e.message,502);}
  const limit=Math.min(20000,Math.max(1,Number(env.DSS_RECEIVABLES_MAX_REGISTROS)||10000));
  if(records.length>limit)throw new ReceivablesQueryError('Limite de '+limit+' parcelas excedido; consulte intervalo menor.',413);
- return {status:200,source:'dss',tipoRef,from:from||null,to:to||null,qtd_registros:records.length,registros:records};
+ return {status:200,source:'dss',tipoRef,from:from||null,to:to||null,qtd_registros:records.length,registros:records,diagnostico};
 }

@@ -7,24 +7,54 @@ const dt=x=>/^\d{4}-\d{2}-\d{2}$/.test(x||'')?x.slice(8)+'/'+x.slice(5,7)+'/'+x.
 const memo=new WeakMap();
 const groupColors=['#e33b57','#a5a7b1','#7c859d','#e0a052'];
 const GROUPS={E:['Emissão','dataEmissao'],V:['Vencimento','dataVencimento'],P:['Pagamento (somente pagas)','dataPagamento']};
+export function receivablesPriority(row,today=new Date().toISOString().slice(0,10)){
+ const paid=String(row.situacaoFatura||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ const settled=/^(pago|paga|pagos|pagas|quitado|quitada|liquidado|liquidada|recebido|recebida)$/.test(paid);
+ if(settled)return 3;
+ if(!row.dataVencimento)return 2;
+ return row.dataVencimento<today?0:1;
+}
 export function filteredReceivables(rows,state){
- const key=state.recvSortKey||'valor',dir=state.recvSortDir==='asc'?1:-1,q=String(state.recvSearch||'').toLowerCase().trim(),status=state.recvStatus||'';
- const group=GROUPS[state.recvRef||'E']||GROUPS.E,ds=group[1];
- const ck=[state.from,state.to,state.recvRef,key,dir,status,q].join('|');
+ const key=state.recvSortKey||'prioridade',dir=state.recvSortDir==='desc'?-1:1,
+  q=String(state.recvSearch||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(),
+  status=state.recvStatus||'',quick=state.recvQuick||'todos';
+ const group=GROUPS[state.recvRef||'E']||GROUPS.E,ds=group[1],
+  today=state.today||new Date().toISOString().slice(0,10),
+  soon=new Date(Date.parse(today+'T12:00:00Z')+7*86400000).toISOString().slice(0,10);
+ const ck=[state.from,state.to,state.recvRef,key,dir,status,q,quick,today].join('|');
  let c=memo.get(rows);if(!c){c=new Map();memo.set(rows,c);}if(c.has(ck))return c.get(ck);
  const filtered=rows.filter(row=>{
   const date=row[ds];if(date&&((state.from&&date<state.from)||(state.to&&date>state.to)))return false;
   if(status&&row.situacaoFatura!==status)return false;
-  if(q&&!Object.values(row).some(value=>String(value??'').toLowerCase().includes(q)))return false;
+  if(quick!=='todos'){
+   const urgency=receivablesPriority(row,today);
+   const positive=Number.isFinite(row.valorResidual)&&row.valorResidual>0;
+   if(quick==='vencidas'&&!(urgency===0&&positive))return false;
+   if(quick==='vence7'&&!(urgency===1&&row.dataVencimento<=soon&&positive))return false;
+   if(quick==='abertas'&&urgency===3)return false;
+   if(quick==='pagas'&&urgency!==3)return false;
+   if(quick==='divergentes'&&!((urgency===3&&(!Number.isFinite(row.valorPagamento)||row.valorPagamento===0))||
+       (urgency!==3&&Number.isFinite(row.valorResidual)&&row.valorResidual===0&&Number.isFinite(row.valor)&&row.valor>0)||
+       !row.tipoFatura))return false;
+  }
+  if(q&&!Object.values(row).some(v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q)))return false;
   return true;
  }).sort((a,b)=>{
+  if(key==='prioridade'){
+   const rank=receivablesPriority(a,today)-receivablesPriority(b,today);
+   if(rank!==0)return rank;
+   const da=a.dataVencimento||'',db=b.dataVencimento||'';
+   if(da&&db&&da!==db)return da.localeCompare(db);
+   if(da!==db)return da? -1:1;
+   return String(a.parceiro||'').localeCompare(String(b.parceiro||''),'pt-BR');
+  }
   const x=a[key],y=b[key];
   if(x===null||x===undefined||x==='')return y===null||y===undefined||y===''?0:1;
   if(y===null||y===undefined||y==='')return -1;
   if(RECEIVABLE_NUMBERS.includes(key))return (x-y)*dir;
   return String(x).localeCompare(String(y),'pt-BR',{numeric:true,sensitivity:'base'})*dir;
  });
- if(c.size>5)c.clear();c.set(ck,filtered);return filtered;
+ if(c.size>6)c.clear();c.set(ck,filtered);return filtered;
 }
 /** O gráfico usa valor residual, valor nominal OU quantidade, sempre com título explícito.
  * Não é permitido substituir R$ 0,00 do DSS por pagamentos inferidos.
@@ -35,7 +65,7 @@ function barChart(title,rows,unit='money',metric='value'){
  return '<section class="mgmt-chart"><div class="mgmt-chart-head"><h3>'+h(title)+'</h3></div><div class="mgmt-bars">'+
  (entries.length?entries.map(e=>{
   const value=unit==='count'?e.count:e[metric],width=max?Math.max(0,value/max*100):0;
-  const known=metric==='face'?e.faceKnown:e.known;
+  const known=metric==='face'?e.faceKnown:metric==='paid'?e.paidKnown:e.known;
   const displayed=unit==='count'?num(value):(known?brl(value):'—');
   return '<div class="mgmt-bar-row"><div class="mgmt-bar-top"><span title="'+h(e.name)+'">'+h(e.name)+'</span><strong>'+h(displayed)+'</strong></div>'+
    '<div class="mgmt-bar-track"><div class="mgmt-bar-fill" style="width:'+Math.min(100,Math.max(0,width)).toFixed(1)+'%"></div></div>'+
@@ -61,12 +91,12 @@ export function renderReceivables(rows,state){
  ].filter(Boolean);
  const ref=state.recvRef||'E',source=state.recvSource==='live'?'DSS':state.recvSource==='unavailable'?'Consulta indisponível':'Demonstração';
  const statuses=[...new Set(rows.map(x=>x.situacaoFatura).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
- const fields=Object.entries(RECEIVABLE_FIELDS),sortKeys=['valor','valorResidual','valorPagamento','dataEmissao','dataVencimento','dataPagamento','parceiro','fatura','situacaoFatura','qtdDiasAberto'];
- const order=sortKeys.map(k=>'<option value="'+k+'" '+((state.recvSortKey||'valor')===k?'selected':'')+'>'+h(RECEIVABLE_FIELDS[k])+'</option>').join('');
+ const fields=Object.entries(RECEIVABLE_FIELDS),sortKeys=['prioridade','dataVencimento','qtdDiasAberto','valorResidual','valorPagamento','valor','dataPagamento','dataEmissao','parceiro','fatura','situacaoFatura'];
+ const order=sortKeys.map(k=>'<option value="'+k+'" '+((state.recvSortKey||'prioridade')===k?'selected':'')+'>'+h(k==='prioridade'?'Prioridade: vencidas e próximas':RECEIVABLE_FIELDS[k])+'</option>').join('');
  const opts=statuses.map(x=>'<option value="'+h(x)+'" '+(state.recvStatus===x?'selected':'')+'>'+h(x)+'</option>').join('');
  const limit=25,pages=Math.max(1,Math.ceil(r.length/limit)),page=Math.min(Math.max(1,state.recvPage||1),pages),visible=r.slice((page-1)*limit,page*limit);
- const cols=['parceiro','fatura','parcela','situacaoFatura','dataEmissao','dataVencimento','dataPagamento','valor','valorPagamento','valorResidual'];
- const colsHtml=cols.map(k=>'<th>'+h(RECEIVABLE_FIELDS[k])+'</th>').join('')+'<th>Detalhes</th>';
+ const cols=['dataVencimento','parceiro','fatura','parcela','situacaoFatura','valor','valorPagamento','valorResidual','dataPagamento','dataEmissao'];
+ const colsHtml=cols.map(k=>'<th><button class="recv-sort-col" type="button" data-recv-sort="'+h(k)+'" title="Ordenar por '+h(RECEIVABLE_FIELDS[k])+'">'+h(RECEIVABLE_FIELDS[k])+' ↕</button></th>').join('')+'<th>Detalhes</th>';
  const body=visible.map((row,i)=>'<tr>'+cols.map(k=>'<td>'+h(RECEIVABLE_NUMBERS.includes(k)?brl(row[k]):RECEIVABLE_DATES.includes(k)?dt(row[k]):row[k]||'—')+'</td>').join('')+
  '<td><details class="recv-details"><summary>Ver campos</summary><div class="recv-details-grid">'+fields.map(([k,label])=>
  '<div><b>'+h(label)+'</b><span>'+h(RECEIVABLE_NUMBERS.includes(k)?(k==='qtdDiasAberto'?row[k]??'—':brl(row[k])):RECEIVABLE_DATES.includes(k)?dt(row[k]):row[k]||'—')+'</span></div>').join('')+
@@ -80,9 +110,16 @@ export function renderReceivables(rows,state){
  warnings+
  '<div class="recv-toolbar"><label>Referência do período<select class="control" id="recvRef"><option value="E" '+(ref==='E'?'selected':'')+'>Emissão (E)</option><option value="V" '+(ref==='V'?'selected':'')+'>Vencimento (V)</option><option value="P" '+(ref==='P'?'selected':'')+'>Pagamento (P)</option></select></label>'+
  '<button class="btn btn-red" type="button" data-action="recv-consult" '+(state.recvLoading?'disabled':'')+'>'+(state.recvLoading?h(state.recvProgress||'CONSULTANDO DSS...'):'CONSULTAR CONTAS A RECEBER NO DSS')+'</button>'+
+ '<label>Vencimentos e prioridades<select class="control" id="recvQuick">'+
+ '<option value="todos" '+(!state.recvQuick||state.recvQuick==='todos'?'selected':'')+'>Todas as parcelas</option>'+
+ '<option value="vencidas" '+(state.recvQuick==='vencidas'?'selected':'')+'>Vencidas com saldo confirmado</option>'+
+ '<option value="vence7" '+(state.recvQuick==='vence7'?'selected':'')+'>Vencem em 7 dias com saldo</option>'+
+ '<option value="abertas" '+(state.recvQuick==='abertas'?'selected':'')+'>Não quitadas (pela situação)</option>'+
+ '<option value="pagas" '+(state.recvQuick==='pagas'?'selected':'')+'>Pagas (pela situação)</option>'+
+ '<option value="divergentes" '+(state.recvQuick==='divergentes'?'selected':'')+'>Conferir dados divergentes</option></select></label>'+
  '<label>Situação<select class="control" id="recvStatus"><option value="">Todas</option>'+opts+'</select></label>'+
  '<label>Ordenar<select class="control" id="recvSortKey">'+order+'</select></label>'+
- '<label>Ordem<select class="control" id="recvSortDir"><option value="desc" '+(state.recvSortDir!=='asc'?'selected':'')+'>Maior / mais recente</option><option value="asc" '+(state.recvSortDir==='asc'?'selected':'')+'>Menor / mais antigo</option></select></label>'+
+ '<label>Ordem<select class="control" id="recvSortDir"><option value="desc" '+(state.recvSortDir==='desc'?'selected':'')+'>Maior / mais recente</option><option value="asc" '+(state.recvSortDir!=='desc'?'selected':'')+'>Menor / mais antigo</option></select></label>'+
  '<button type="button" class="btn" data-action="recv-clear">Limpar filtros</button></div>'+
  '<div class="v-search-row"><div class="v-search-field"><input id="recvSearchInput" type="search" class="control full" autocomplete="off" placeholder="Pesquise parceiro, parcela, fatura, CNPJ, conta ou qualquer campo..." value="'+h(state.recvSearch||'')+'"></div></div>'+
  '<div class="kpis">'+card('PARCELAS',num(summary.count),'Registros após filtros')+
@@ -98,13 +135,22 @@ export function renderReceivables(rows,state){
  (financialMode==='residual'?barChart('Saldo RESIDUAL informado por parceiro',summary.parceiros):
   financialMode==='nominal'?barChart('Valor NOMINAL por parceiro (não é saldo)',summary.parceiros,'money','face'):
   barChart('Quantidade de parcelas por parceiro (valores não disponíveis)',summary.parceiros,'count','count'))+
- (financialMode==='residual'?barChart('Saldo RESIDUAL por situação da fatura',summary.situacoes):
-  barChart('Quantidade por situação da fatura',summary.situacoes,'count','count'))+
+ (summary.positivePaid>0?barChart('Pagamentos informados no DSS por situação',summary.situacoes,'money','paid'):
+  barChart('Parcelas por situação — pagamentos não informados',summary.situacoes,'count','count'))+
+ (summary.positiveResidual>0?barChart('Saldo residual informado por situação',summary.situacoes):
+  barChart('Quantidade por situação — residual sem valor positivo',summary.situacoes,'count','count'))+
  (financialMode==='residual'?barChart('Saldo RESIDUAL por mês de vencimento',summary.vencimentos):
   financialMode==='nominal'?barChart('Valor NOMINAL por mês de vencimento',summary.vencimentos,'money','face'):
   barChart('Quantidade de parcelas por mês de vencimento',summary.vencimentos,'count','count'))+
  (allTypesMissing?barChart('Parcelas por centro de custo (tipo não informado)',summary.centros,'count','count'):
   barChart('Parcelas por tipo de fatura informado',summary.tipos,'count','count'))+'</div>'+
+ '<section class="mgmt-alerts recv-coverage"><h3>CONFERÊNCIA DOS CAMPOS DEVOLVIDOS PELO DSS</h3>'+
+ '<p>Estas contagens descrevem os registros carregados, não comprovam pagamentos. Para conferir pagamentos, consulte também a referência <strong>Pagamento (P)</strong>, que retorna apenas as parcelas pagas no período de pagamento.</p>'+
+ '<div class="recv-coverage-grid">'+
+ '<div><strong>valorPagamento</strong><span>'+num(summary.paymentFieldCoverage.positive)+' positivos · '+num(summary.paymentFieldCoverage.zero)+' zeros · '+num(summary.paymentFieldCoverage.missing)+' ausentes</span></div>'+
+ '<div><strong>valorResidual</strong><span>'+num(summary.residualFieldCoverage.positive)+' positivos · '+num(summary.residualFieldCoverage.zero)+' zeros · '+num(summary.residualFieldCoverage.missing)+' ausentes</span></div>'+
+ '<div><strong>tipoFatura</strong><span>'+num(summary.count-summary.missingTypes)+' preenchidos · '+num(summary.missingTypes)+' ausentes</span></div></div>'+
+ '<p>O gráfico de saldo não mede pagamentos: para isso é usado exclusivamente <code>valorPagamento</code>. Se os campos vierem zerados ou ausentes, é necessário confirmar a resposta original do DSS.</p></section>'+
  agingTable(summary.aging)+
  '<p class="ins-hint">Aviso: vencidas com saldo usa data de vencimento e valor residual confirmado na API. Valores nominais não são somados como pagamentos nem como saldo. Para interpretar inconsistências, consulte o DSS. Não significa inadimplência confirmada.</p>'+
  '<div class="ins-responsive-table recv-table"><table><thead><tr>'+colsHtml+'</tr></thead><tbody>'+

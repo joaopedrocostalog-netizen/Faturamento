@@ -144,7 +144,7 @@ const state = {
  {empresa:'EXEMPLO',dataEmissao:'2026-10-02',parceiro:'PARCEIRO FICTÍCIO B',parcela:'1/1',fatura:'DEMO-002',
  situacaoFatura:'PAGA',dataVencimento:'2026-10-12',dataPagamento:'2026-10-10',valor:850,valorPagamento:850,valorResidual:0,tipoFatura:'Armazenagem'}
  ]}),recvSource:'demo',recvError:'',recvLoading:false,recvDialogOpen:false,recvRef:'E',
- recvStatus:'',recvSortKey:'valor',recvSortDir:'desc',recvPage:1,recvSearch:'',recvProgress:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
+ recvStatus:'',recvQuick:'todos',recvSortKey:'prioridade',recvSortDir:'asc',recvPage:1,recvSearch:'',recvProgress:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
@@ -931,6 +931,16 @@ root.addEventListener('click',e=>{
   }
   render();return;
  }
+ const recvSort=e.target.closest('[data-recv-sort]');
+ if(recvSort){
+  const key=recvSort.dataset.recvSort;
+  if(['parceiro','fatura','parcela','situacaoFatura','dataEmissao','dataVencimento',
+       'dataPagamento','valor','valorPagamento','valorResidual'].includes(key)){
+   state.recvSortDir=state.recvSortKey===key&&state.recvSortDir==='asc'?'desc':'asc';
+   state.recvSortKey=key;state.recvPage=1;render();
+  }
+  return;
+ }
  const docSort=e.target.closest('[data-doc-sort]');
  if(docSort){
   const key=docSort.dataset.docSort;
@@ -981,7 +991,7 @@ root.addEventListener('click',e=>{
  if(action==='recv-cancel-overlay'&&e.target===act){state.recvDialogOpen=false;render();}
  if(action==='recv-prev'&&state.recvPage>1){state.recvPage--;render();}
  if(action==='recv-next'){state.recvPage++;render();}
- if(action==='recv-clear'){state.recvStatus='';state.recvSearch='';state.recvSortKey='valor';state.recvSortDir='desc';state.recvPage=1;render();}
+ if(action==='recv-clear'){state.recvStatus='';state.recvSearch='';state.recvQuick='todos';state.recvSortKey='prioridade';state.recvSortDir='asc';state.recvPage=1;render();}
  if(action==='toggle-advanced-filters'){state.extraFiltersOpen=!state.extraFiltersOpen;render();return;}
  if(action==='customer-detail-prev'&&state.clientDetailPage>1){state.clientDetailPage--;render();return;}
  if(action==='customer-detail-next'){state.clientDetailPage++;render();return;}
@@ -1081,9 +1091,11 @@ root.addEventListener('change',e=>{
  if(e.target.id==='recvRef'){
   receivablesEpoch++;state.recvLoading=false;state.recvProgress='';
   state.recvRef=e.target.value;state.recvRows=[];state.recvSource='pending';
+  state.recvQuick='todos';state.recvSortKey=state.recvRef==='P'?'dataPagamento':'prioridade';state.recvSortDir=state.recvRef==='P'?'desc':'asc';
   state.recvStatus='';state.recvError='';state.recvPage=1;render();return;
  }
  if(e.target.id==='recvStatus'){state.recvStatus=e.target.value;state.recvPage=1;render();return;}
+ if(e.target.id==='recvQuick'){state.recvQuick=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='recvSortKey'){state.recvSortKey=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='recvSortDir'){state.recvSortDir=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='docsOperation'){state.docsOperation=e.target.value;state.docsPage=1;render();}

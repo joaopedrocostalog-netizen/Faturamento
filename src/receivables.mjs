@@ -91,6 +91,7 @@ export function receivablesSummary(rows,{today=new Date().toISOString().slice(0,
  let face=0,paid=0,residual=0,faceKnown=0,paidKnown=0,residualKnown=0;
  let lateCount=0,lateResidual=0,lateKnown=0,paidCount=0,openCount=0,partialCount=0;
  let paidWithoutAmount=0,openWithZeroResidual=0,missingTypes=0,missingResidual=0;
+ let missingPaid=0,zeroPaid=0,positivePaid=0,missingFace=0,zeroResidual=0,positiveResidual=0;
  let dueSoonCount=0,dueSoonResidual=0,nominalOpen=0,nominalOpenKnown=0;
  let inferredPaidNominal=0,inferredPaidNominalKnown=0;
  const groups={situacoes:new Map(),parceiros:new Map(),tipos:new Map(),vencimentos:new Map(),
@@ -108,7 +109,10 @@ export function receivablesSummary(rows,{today=new Date().toISOString().slice(0,
   const hasFace=Number.isFinite(r.valor),hasPaid=Number.isFinite(r.valorPagamento),
    hasResidual=Number.isFinite(r.valorResidual);
   const statusPaid=isPaidStatus(r.situacaoFatura),statusOpen=isOpenStatus(r.situacaoFatura);
-  if(hasFace){face+=r.valor;faceKnown++;}
+  if(hasFace){face+=r.valor;faceKnown++;}else missingFace++;
+  if(!hasPaid)missingPaid++;else if(r.valorPagamento===0)zeroPaid++;else if(r.valorPagamento>0)positivePaid++;
+  if(hasResidual&&r.valorResidual===0)zeroResidual++;
+  if(hasResidual&&r.valorResidual>0)positiveResidual++;
   if(hasPaid){paid+=r.valorPagamento;paidKnown++;}
   if(hasResidual){residual+=r.valorResidual;residualKnown++;}else missingResidual++;
   if(r.dataPagamento||statusPaid)paidCount++;
@@ -149,6 +153,9 @@ export function receivablesSummary(rows,{today=new Date().toISOString().slice(0,
  return {count:rows.length,face,faceKnown,paid,paidKnown,residual,residualKnown,
   paidCount,openCount,partialCount,lateCount,lateResidual,lateKnown,dueSoonCount,dueSoonResidual,
   paidWithoutAmount,openWithZeroResidual,missingTypes,missingResidual,
+  missingPaid,zeroPaid,positivePaid,missingFace,zeroResidual,positiveResidual,
   nominalOpen,nominalOpenKnown,inferredPaidNominal,inferredPaidNominalKnown,
+  paymentFieldCoverage:{filled:paidKnown,missing:missingPaid,zero:zeroPaid,positive:positivePaid},
+  residualFieldCoverage:{filled:residualKnown,missing:missingResidual,zero:zeroResidual,positive:positiveResidual},
   aging:agingRanges,...grouped};
 }

@@ -47,7 +47,8 @@ test('403 parcelas com campos zeros e sem tipo não viram pagamento inventado',(
  assert(html.includes('343 parcela(s) classificadas como pagas'));
  assert(html.includes('15 parcela(s) classificadas como abertas'));
  assert(html.includes('Valor NOMINAL por parceiro'));
- assert(html.includes('Quantidade por situação da fatura'));
+ assert(html.includes('Parcelas por situação — pagamentos não informados'));
+ assert(html.includes('CONFERÊNCIA DOS CAMPOS DEVOLVIDOS PELO DSS'));
  assert(html.includes('Parcelas por centro de custo'));
  assert(html.includes('VENCIMENTOS E FAIXAS DE ATRASO'));
  assert(!html.includes('Pagamento confirmado: '+sum.inferredPaidNominal));
@@ -88,4 +89,38 @@ test('Grupos não inferem tipo de fatura a partir de centros de custo ou método
  const h=renderReceivables(rows,{recvRef:'E',recvSource:'live',from:'2026-01-01',to:'2026-10-20'});
  assert(h.includes('Parcelas por tipo de fatura informado'));
  assert(h.includes('TIPO DE FATURA AUSENTE'));
+});
+
+test('Vencidas vêm antes dos próximos vencimentos e pagas ficam no final',()=>{
+ const rows=normalizeReceivables({status:200,registros:[
+  {fatura:'PAGA',dataVencimento:'02/01/2026',dataEmissao:'01/01/2026',situacaoFatura:'Pago',valorResidual:0},
+  {fatura:'FUTURA',dataVencimento:'25/10/2026',dataEmissao:'01/01/2026',situacaoFatura:'Aberto',valorResidual:500},
+  {fatura:'VENCIDA',dataVencimento:'01/10/2026',dataEmissao:'01/01/2026',situacaoFatura:'Aberto',valorResidual:600},
+  {fatura:'INDEFINIDA',dataVencimento:'',dataEmissao:'01/01/2026',situacaoFatura:'',valorResidual:null}
+ ]});
+ const filters={recvRef:'E',recvSortKey:'prioridade',recvSortDir:'asc',from:'2026-01-01',to:'2026-12-31',today:'2026-10-20'};
+ assert.deepEqual(filteredReceivables(rows,filters).map(x=>x.fatura),['VENCIDA','FUTURA','INDEFINIDA','PAGA']);
+ assert.deepEqual(filteredReceivables(rows,{...filters,recvQuick:'vencidas'}).map(x=>x.fatura),['VENCIDA']);
+ assert.deepEqual(filteredReceivables(rows,{...filters,recvQuick:'vence7'}).map(x=>x.fatura),['FUTURA']);
+ assert.deepEqual(filteredReceivables(rows,{...filters,recvQuick:'pagas'}).map(x=>x.fatura),['PAGA']);
+ const html=renderReceivables(rows,filters);
+ assert(html.includes('data-recv-sort="dataVencimento"'));
+ assert(html.includes('Vencimentos e prioridades'));
+ assert(html.includes('Prioridade: vencidas e próximas'));
+});
+test('Pagamento e saldo são gráficos distintos, sem inventar quitação',()=>{
+ const rows=normalizeReceivables({status:200,registros:[
+  {parceiro:'TESTE',situacaoFatura:'Pago',dataEmissao:'01/10/2026',dataVencimento:'15/10/2026',valor:1200,valorPagamento:1200,valorResidual:null},
+  {parceiro:'TESTE',situacaoFatura:'Aberto',dataEmissao:'01/10/2026',dataVencimento:'18/10/2026',valor:400,valorPagamento:0,valorResidual:400}
+ ]});
+ const summary=receivablesSummary(rows,{today:'2026-10-20'});
+ assert.equal(summary.paymentFieldCoverage.positive,1);
+ assert.equal(summary.paymentFieldCoverage.zero,1);
+ assert.equal(summary.residualFieldCoverage.missing,1);
+ assert.equal(summary.residualFieldCoverage.positive,1);
+ const html=renderReceivables(rows,{recvRef:'E',recvSource:'live',recvSortKey:'prioridade',today:'2026-10-20'});
+ assert(html.includes('Pagamentos informados no DSS por situação'));
+ assert(html.includes('Saldo residual informado por situação'));
+ assert(html.includes('1 positivos · 1 zeros · 0 ausentes'));
+ assert(html.includes('1 positivos · 0 zeros · 1 ausentes'));
 });

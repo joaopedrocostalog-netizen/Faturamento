@@ -511,3 +511,13 @@ body{background:#08090b;color:#f6f7f8}
 .recv-details-grid b{color:#bbc0ce;font-size:10px}
 .recv-details-grid span{font-size:11px;color:#fff}
 @media(max-width:780px){.recv-toolbar>*{flex:1 1 100%}.recv-toolbar label{width:100%}.recv-details-grid{grid-template-columns:1fr;min-width:270px}}
+
+/* Contas a Receber: ordenação no cabeçalho e conferência de preenchimento. */
+.recv-sort-col{display:inline-flex;align-items:center;gap:4px;background:transparent;border:0;padding:0;color:inherit;text-align:left;font:inherit;font-weight:750;white-space:nowrap;cursor:pointer}
+.recv-sort-col:hover,.recv-sort-col:focus-visible{color:#ff526a}
+.recv-coverage{margin:20px 0}
+.recv-coverage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0}
+.recv-coverage-grid>div{padding:12px;background:#25262b;border-radius:9px;display:grid;gap:6px}
+.recv-coverage-grid strong{font-size:12px;color:#f6f6f8;overflow-wrap:anywhere}
+.recv-coverage-grid span{font-size:12px;color:#bdc0c9}
+@media(max-width:700px){.recv-coverage-grid{grid-template-columns:1fr}}
