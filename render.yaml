@@ -20,6 +20,8 @@ services:
       # Rota fornecida pelo Swagger "Parcelas a receber no período".
       - key: DSS_RECEIVABLES_PATH
         sync: false
+      - key: DSS_RECEIVABLES_TIMEOUT_MS
+        value: "55000"
       - key: DSS_AUTH_TYPE
         value: basic
       - key: DSS_USERNAME

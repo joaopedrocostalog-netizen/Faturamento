@@ -258,7 +258,7 @@ const staticFiles=new Map([
  ['/index.html','index.html'],
  ['/styles.css','styles.css'],
  ['/logo-costalog-sem-fundo-1024x876.png','logo-costalog-sem-fundo-1024x876.png'],
- ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs','dss-sync.mjs','managerial-ui.mjs','receivables.mjs','receivables-ui.mjs'].map(name=>['/src/'+name,'src/'+name])
+ ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs','dss-sync.mjs','managerial-ui.mjs','receivables.mjs','receivables-ui.mjs','receivables-batch.mjs'].map(name=>['/src/'+name,'src/'+name])
 ]);
 async function serveLocalFrontend(req,res,url){
  if(req.method!=='GET'&&req.method!=='HEAD')return false;
@@ -367,7 +367,7 @@ const server=http.createServer(async(req,res)=>{
    return reply(res,200,data,origin,req.headers['accept-encoding']||'');
   }catch(e){
    const status=e instanceof ReceivablesQueryError?e.status:502;
-   console.warn('[DSS] contas a receber:',status,e?.name||'Error');
+   console.warn('[DSS] contas a receber:',status,e?.name||'Error','período',from||'hoje',to||'hoje','referência',tipoRef);
    return reply(res,status,{error:e instanceof ReceivablesQueryError?e.message:'Erro ao consultar Contas a Receber no DSS.'},origin);
   }
  }

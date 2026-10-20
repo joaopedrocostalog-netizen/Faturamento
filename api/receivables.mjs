@@ -32,8 +32,25 @@ export async function queryReceivables({env=process.env,from='',to='',tipoRef='E
   headers[env.DSS_AUTH_HEADER]=env.DSS_AUTH_VALUE;
  }else throw new ReceivablesQueryError('DSS_AUTH_TYPE inválido.',503);
  let res;
- try{res=await fetchImpl(url,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(Math.min(60000,Math.max(2000,Number(env.DSS_TIMEOUT_MS)||25000)))});}
- catch{throw new ReceivablesQueryError('Falha de rede ou tempo limite ao consultar Contas a Receber no DSS.',502);}
+ const timeout=Math.min(60000,Math.max(5000,Number(env.DSS_RECEIVABLES_TIMEOUT_MS)||55000));
+ const started=Date.now();
+ try{
+  res=await fetchImpl(url,{method:'GET',headers,redirect:'error',signal:AbortSignal.timeout(timeout)});
+ }catch(e){
+  // Não registrar URL, credenciais ou conteúdo fiscal nos logs.
+  const code=String(e?.cause?.code||e?.code||''),name=String(e?.name||'');
+  const isTimeout=/timeout|abort|UND_ERR_CONNECT_TIMEOUT|ETIMEDOUT/i.test(name+' '+code);
+  const kind=isTimeout?'timeout':/ENOTFOUND|EAI_AGAIN/i.test(code)?'dns':
+   /ECONNREFUSED|ECONNRESET|UND_ERR_SOCKET/i.test(code)?'connection':'network';
+  console.warn('[DSS] receber consulta falhou',{kind,code:code.slice(0,45),elapsedMs:Date.now()-started,
+   from:from||'today',to:to||'today',tipoRef});
+  if(isTimeout)throw new ReceivablesQueryError('Tempo limite de '+Math.round(timeout/1000)+'s na consulta DSS de Contas a Receber. Tente um período menor.',504);
+  if(kind==='dns')throw new ReceivablesQueryError('Não foi possível resolver o servidor DSS (DNS). Verifique conectividade e DSS_BASE_URL.',502);
+  if(kind==='connection')throw new ReceivablesQueryError('A conexão com o DSS foi interrompida ou recusada. Verifique disponibilidade do fornecedor.',502);
+  throw new ReceivablesQueryError('Falha de conexão entre Render e DSS. Confira acesso de rede e servidor.',502);
+ }
+ console.info('[DSS] receber retorno',{httpStatus:res.status,elapsedMs:Date.now()-started,
+  from:from||'today',to:to||'today',tipoRef});
  if(res.status===401)throw new ReceivablesQueryError('Usuário ou senha DSS inválidos.',502);
  if(res.status===403)throw new ReceivablesQueryError('Acesso negado: este endpoint exige o módulo tms_financeiro no DSS.',403);
  if(res.status===404)throw new ReceivablesQueryError('Rota não encontrada. Confira DSS_RECEIVABLES_PATH no Swagger.',502);

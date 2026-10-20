@@ -11,6 +11,7 @@ import {normalizeOverview,costByClient} from './dss-mapping.mjs';
 import {renderFinanceDashboard,renderFinanceComparison,renderComparisonSyncDialog} from './financial-ui.mjs';
 import {renderManagerialDashboard} from './managerial-ui.mjs';
 import {normalizeReceivables} from './receivables.mjs';
+import {loadReceivablesByPeriod} from './receivables-batch.mjs';
 import {renderReceivables,renderReceivablesTokenDialog} from './receivables-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
@@ -143,7 +144,7 @@ const state = {
  {empresa:'EXEMPLO',dataEmissao:'2026-10-02',parceiro:'PARCEIRO FICTÍCIO B',parcela:'1/1',fatura:'DEMO-002',
  situacaoFatura:'PAGA',dataVencimento:'2026-10-12',dataPagamento:'2026-10-10',valor:850,valorPagamento:850,valorResidual:0,tipoFatura:'Armazenagem'}
  ]}),recvSource:'demo',recvError:'',recvLoading:false,recvDialogOpen:false,recvRef:'E',
- recvStatus:'',recvSortKey:'valor',recvSortDir:'desc',recvPage:1,recvSearch:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
+ recvStatus:'',recvSortKey:'valor',recvSortDir:'desc',recvPage:1,recvSearch:'',recvProgress:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
@@ -741,6 +742,8 @@ function invalidateSyncedDocuments(){
   state.docsRows=[];state.docsSource='pending';state.docsUpdatedAt='';
   state.lastSync=null;state.prevDataset=null;
  }
+ receivablesEpoch++;
+ state.recvLoading=false;state.recvProgress='';
  state.docsLoading=false;state.syncProgress='';state.syncError='';state.docsError='';state.page=1;state.docsPage=1;
  if(state.recvSource!=='demo'){state.recvRows=[];state.recvSource='pending';state.recvError='';state.recvPage=1;}
  scopedCache=null;
@@ -772,7 +775,7 @@ async function synchronizeElectronicDocuments(token){
   const [rows,,receivables]=await Promise.all([
    fetchAuthorizedDocuments({token,from,to}),
    Promise.all(Array.from({length:Math.min(2,windows.length)},worker)),
-   fetchAuthorizedReceivables({token,from,to,tipoRef:'E'})
+   loadReceivablesByPeriod({token,from,to,tipoRef:'E',concurrency:1})
     .then(records=>({ok:true,records}))
     .catch(error=>({ok:false,message:String(error?.message||'Consulta indisponível').slice(0,230)}))
   ]);
@@ -781,6 +784,7 @@ async function synchronizeElectronicDocuments(token){
   // Commit atômico: não misturar dados de fontes e períodos diferentes.
   state.dataset=normalized;state.docsRows=rows;state.mode='live';state.docsSource='live';
   state.recvRef='E';state.recvRows=receivables.ok?receivables.records:[];
+  state.recvProgress='';
   state.recvSource=receivables.ok?'live':'unavailable';
   state.recvError=receivables.ok?'':'Contas a Receber não sincronizado: '+receivables.message;
   state.recvPage=1;
@@ -800,9 +804,16 @@ let receivablesEpoch=0;
 /** Atualiza apenas a aba de Contas a Receber, sem alterar a sincronização global. */
 async function consultReceivables(token){
  const epoch=++receivablesEpoch,from=state.from,to=state.to,tipoRef=state.recvRef;
- state.recvDialogOpen=false;state.recvLoading=true;state.recvError='';render();
+ state.recvDialogOpen=false;state.recvLoading=true;state.recvError='';state.recvProgress='Iniciando consulta mensal...';render();
  try{
-  const rows=await fetchAuthorizedReceivables({token,from,to,tipoRef});
+  const rows=await loadReceivablesByPeriod({token,from,to,tipoRef,concurrency:1,
+   onProgress(done,total){
+    if(epoch!==receivablesEpoch||from!==state.from||to!==state.to||tipoRef!==state.recvRef)return;
+    state.recvProgress='Consultados '+done+' de '+total+' meses';
+    const button=document.querySelector?.('[data-action="recv-consult"]');
+    if(button)button.textContent=state.recvProgress;
+   }
+  });
   if(epoch!==receivablesEpoch||from!==state.from||to!==state.to||tipoRef!==state.recvRef)return;
   state.recvRows=rows;state.recvSource='live';state.recvPage=1;
  }catch(error){
@@ -811,7 +822,7 @@ async function consultReceivables(token){
    state.recvSource='unavailable';state.recvRows=[];
   }
  }finally{
-  if(epoch===receivablesEpoch){state.recvLoading=false;render();}
+  if(epoch===receivablesEpoch){state.recvLoading=false;state.recvProgress='';render();}
  }
 }
 function exportAdvanced(type,format){
@@ -1068,6 +1079,7 @@ root.addEventListener('change',e=>{
  if(e.target.id==='docsStatus'){state.docsStatus=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='docsModel'){state.docsModel=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='recvRef'){
+  receivablesEpoch++;state.recvLoading=false;state.recvProgress='';
   state.recvRef=e.target.value;state.recvRows=[];state.recvSource='pending';
   state.recvStatus='';state.recvError='';state.recvPage=1;render();return;
  }

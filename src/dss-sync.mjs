@@ -58,8 +58,11 @@ export async function fetchAuthorizedReceivables({token,from,to,tipoRef='E',fetc
  try{
   response=await fetchImpl(url.toString(),{method:'GET',
    headers:{Authorization:'Bearer '+token.trim(),Accept:'application/json'},
-   cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(60000)});
- }catch{throw Error('Falha de rede ou tempo limite ao consultar Contas a Receber no Render.');}
+   cache:'no-store',credentials:'omit',redirect:'error',signal:AbortSignal.timeout(80000)});
+ }catch(e){
+  if(/Timeout|Abort/i.test(String(e?.name||'')))throw Error('Tempo limite de conexão com o Render ao consultar parcelas. Tente período menor.');
+  throw Error('Falha de rede entre navegador e Render ao consultar Contas a Receber. Verifique conexão e disponibilidade do site.');
+ }
  let payload;
  try{payload=await response.json();}catch{throw Error('O Render retornou dados inválidos em Contas a Receber.');}
  if(response.status===401)throw Error('Token DSS não autorizado no Render.');

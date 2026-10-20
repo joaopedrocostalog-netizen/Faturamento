@@ -35,6 +35,7 @@ jobs:
           node --check src/dss-sync.mjs
           node --check src/managerial-ui.mjs
           node --check src/receivables.mjs
+          node --check src/receivables-batch.mjs
           node --check src/receivables-ui.mjs
           node --check api/receivables.mjs
           node --check api/e-documents.mjs
@@ -61,7 +62,7 @@ jobs:
         run: |
           mkdir -p public_site/src
           cp index.html styles.css logo-costalog-sem-fundo-1024x876.png public_site/
-          cp src/app.js src/dss-mapping.mjs src/operational.mjs src/reporting.mjs src/advanced-ui.mjs src/visual-dashboard.mjs src/access-ui.mjs src/admin-users.mjs src/site-config.mjs src/intelligence.mjs src/intelligence-ui.mjs src/financial-ui.mjs src/e-documents.mjs src/e-documents-ui.mjs src/dss-sync.mjs src/managerial-ui.mjs src/receivables.mjs src/receivables-ui.mjs public_site/src/
+          cp src/app.js src/dss-mapping.mjs src/operational.mjs src/reporting.mjs src/advanced-ui.mjs src/visual-dashboard.mjs src/access-ui.mjs src/admin-users.mjs src/site-config.mjs src/intelligence.mjs src/intelligence-ui.mjs src/financial-ui.mjs src/e-documents.mjs src/e-documents-ui.mjs src/dss-sync.mjs src/managerial-ui.mjs src/receivables.mjs src/receivables-ui.mjs src/receivables-batch.mjs public_site/src/
           touch public_site/.nojekyll
       - name: Enviar frontend
         uses: actions/upload-pages-artifact@v3

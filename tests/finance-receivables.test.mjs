@@ -105,13 +105,13 @@ test('Tabela exibe 25 parcelas por página e permite expandir 34 campos sem HTML
 });
 test('Render serve módulos importados, protege Contas a Receber e conserva a saúde sem DSS',()=>{
  const backend=readFileSync('api/server.mjs','utf8');
- for(const path of ['managerial-ui.mjs','receivables.mjs','receivables-ui.mjs'])assert(backend.includes("'"+path+"'"));
+ for(const path of ['managerial-ui.mjs','receivables.mjs','receivables-ui.mjs','receivables-batch.mjs'])assert(backend.includes("'"+path+"'"));
  assert(backend.includes("url.pathname==='/api/receivables'"));
  assert(backend.includes("if(!allowedBySession&&!docsSyncAuthorized(req))"));
  assert(backend.includes("url.pathname==='/api/health'"));
  const app=readFileSync('src/app.js','utf8');
  assert(app.includes("['receber','doc','Contas a Receber']"));
- assert(app.includes("fetchAuthorizedReceivables({token,from,to,tipoRef:'E'})"));
+ assert(app.includes("loadReceivablesByPeriod({token,from,to,tipoRef:'E',concurrency:1})"));
  assert(app.includes("'Contas a Receber não sincronizado: '+receivables.message"));
  assert(app.includes('renderReceivables(state.recvRows,state)'));
 });

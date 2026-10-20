@@ -52,10 +52,11 @@ export function renderReceivables(rows,state){
  '</div></details></td></tr>').join('');
  const warnings=state.recvError?'<div class="info-strip error">'+h(state.recvError)+'</div>':'';
  return '<section class="ins-module"><div class="section-title"><h2>CONTAS A RECEBER / PARCELAS</h2><span>'+h(source)+'</span></div>'+
+ '<p class="ins-hint">Para períodos longos, o portal consulta o DSS mês a mês, sem mostrar totais incompletos. Em caso de tempo limite, o mês afetado será dividido em quinzenas automaticamente.</p>'+
  '<p class="ins-hint">A consulta considera '+h(GROUPS[ref][0].toLowerCase())+' no período selecionado. Selecione o referencial E / V / P para consultar emissão, vencimento ou pagamento. A opção P é exclusiva para parcelas pagas, conforme a documentação DSS.</p>'+
  warnings+
  '<div class="recv-toolbar"><label>Referência do período<select class="control" id="recvRef"><option value="E" '+(ref==='E'?'selected':'')+'>Emissão (E)</option><option value="V" '+(ref==='V'?'selected':'')+'>Vencimento (V)</option><option value="P" '+(ref==='P'?'selected':'')+'>Pagamento (P)</option></select></label>'+
- '<button class="btn btn-red" type="button" data-action="recv-consult" '+(state.recvLoading?'disabled':'')+'>'+(state.recvLoading?'CONSULTANDO DSS...':'CONSULTAR CONTAS A RECEBER NO DSS')+'</button>'+
+ '<button class="btn btn-red" type="button" data-action="recv-consult" '+(state.recvLoading?'disabled':'')+'>'+(state.recvLoading?h(state.recvProgress||'CONSULTANDO DSS...'):'CONSULTAR CONTAS A RECEBER NO DSS')+'</button>'+
  '<label>Situação<select class="control" id="recvStatus"><option value="">Todas</option>'+opts+'</select></label>'+
  '<label>Ordenar<select class="control" id="recvSortKey">'+order+'</select></label>'+
  '<label>Ordem<select class="control" id="recvSortDir"><option value="desc" '+(state.recvSortDir!=='asc'?'selected':'')+'>Maior / mais recente</option><option value="asc" '+(state.recvSortDir==='asc'?'selected':'')+'>Menor / mais antigo</option></select></label>'+
