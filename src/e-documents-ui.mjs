@@ -8,13 +8,13 @@ const docSortColumns={
  valorFinal:{label:'Valor final',numeric:true},totalIss:{label:'ISS',numeric:true},
  dataEmissao:{label:'Emissão'},parceiro:{label:'Parceiro'},numeroNfse:{label:'Nº NFS-e'},
  fatura:{label:'Fatura'},status:{label:'Status'},tipoOperacao:{label:'Operação'},
- modelo:{label:'Modelo'},pontoApoio:{label:'Ponto de apoio'}
+ modelo:{label:'Modelo'},pontoApoio:{label:'Ponto de apoio'},id:{label:'ID DSS'}
 };
 const documentFilterCache=new WeakMap();
 export function filteredElectronicDocuments(rows,s){
  // Paginar não altera filtros nem ordenação; reusar a lista calculada.
  const cacheKey=[s.from||'',s.to||'',s.search||'',s.docsStatus||'',s.docsModel||'',
-  s.docsSortKey||'valorFinal',s.docsSortDir||'desc'].join('|');
+  s.docsOperation||'',s.docsSupport||'',s.docsSortKey||'valorFinal',s.docsSortDir||'desc'].join('|');
  let cached=documentFilterCache.get(rows);
  if(!cached){cached=new Map();documentFilterCache.set(rows,cached);}
  if(cached.has(cacheKey))return cached.get(cacheKey);
@@ -22,6 +22,7 @@ export function filteredElectronicDocuments(rows,s){
  const direction=s.docsSortDir==='asc'?1:-1;
  const result=rows.filter(r=>(!s.from||!r.dataEmissao||r.dataEmissao>=s.from)&&(!s.to||!r.dataEmissao||r.dataEmissao<=s.to)
    &&(!s.docsStatus||r.status===s.docsStatus)&&(!s.docsModel||r.modelo===s.docsModel)
+   &&(!s.docsOperation||r.tipoOperacao===s.docsOperation)&&(!s.docsSupport||r.pontoApoio===s.docsSupport)
    &&(!query||[r.parceiro,r.tipoOperacao,r.numeroNfse,r.modelo,r.status,r.fatura,r.pontoApoio,r.id,
     r.valorFinal,r.totalIss,r.dataEmissao,r.dataEmissaoOriginal].some(v=>normalize(v).includes(query))))
    .sort((a,b)=>{
@@ -44,13 +45,15 @@ export function renderElectronicDocuments(rows,state){
  const options=(values,selected)=>values.map(v=>'<option value="'+h(v)+'" '+(v===selected?'selected':'')+'>'+h(v)+'</option>').join('');
  const types=[...new Set(rows.map(x=>x.status).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const models=[...new Set(rows.map(x=>x.modelo).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ const operations=[...new Set(rows.map(x=>x.tipoOperacao).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ const supports=[...new Set(rows.map(x=>x.pontoApoio).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const sorting=Object.entries(docSortColumns).map(([key,v])=>'<option value="'+key+'" '+((state.docsSortKey||'valorFinal')===key?'selected':'')+'>'+h(v.label)+'</option>').join('');
  const size=25,pages=Math.max(1,Math.ceil(list.length/size)),page=Math.min(Math.max(state.docsPage||1,1),pages);
  const pageRows=list.slice((page-1)*size,page*size);
  const cols=[
   ['numeroNfse','NFS-e'],['parceiro','Parceiro'],['tipoOperacao','Operação'],['modelo','Modelo'],
   ['status','Status'],['dataEmissao','Emissão'],['valorFinal','Valor final'],['totalIss','ISS'],
-  ['fatura','Fatura'],['pontoApoio','Ponto de apoio']
+  ['fatura','Fatura'],['pontoApoio','Ponto de apoio'],['id','ID DSS']
  ];
  const th=cols.map(([key,label])=>'<th><button type="button" class="sort-link" data-doc-sort="'+key+'" title="Ordenar por '+h(label)+'">'+h(label)+' '+((state.docsSortKey||'valorFinal')===key?(state.docsSortDir==='asc'?'↑':'↓'):'↕')+'</button></th>').join('');
  const trs=pageRows.map(d=>'<tr>'+cols.map(([key])=>'<td>'+(
@@ -65,13 +68,15 @@ export function renderElectronicDocuments(rows,state){
  kpi('TOTAL ISS',v.totalIss.count?brl(v.totalIss.sum):'—',v.totalIss.count+' valores conhecidos')+'</div>'+
  '<div class="doc-table-toolbar"><label>Filtrar status<select id="docsStatus" class="control"><option value="">Todos</option>'+options(types,state.docsStatus)+'</select></label>'+
  '<label>Modelo<select id="docsModel" class="control"><option value="">Todos</option>'+options(models,state.docsModel)+'</select></label>'+
+ '<label>Tipo de operação<select id="docsOperation" class="control"><option value="">Todas</option>'+options(operations,state.docsOperation)+'</select></label>'+
+ '<label>Ponto de apoio<select id="docsSupport" class="control"><option value="">Todos</option>'+options(supports,state.docsSupport)+'</select></label>'+
  '<label>Ordenar por<select id="docsSortKey" class="control">'+sorting+'</select></label>'+
  '<label>Ordem<select id="docsSortDir" class="control"><option value="desc" '+(state.docsSortDir!=='asc'?'selected':'')+'>Maior → menor / Z → A</option><option value="asc" '+(state.docsSortDir==='asc'?'selected':'')+'>Menor → maior / A → Z</option></select></label>'+
  '<button class="btn btn-sm" type="button" data-action="docs-clear-filters">Limpar filtros</button>'+
  '<button class="btn btn-sm" type="button" data-action="docs-csv">EXPORTAR CSV</button></div>'+
  (state.docsError?'<p class="ins-inline-error">'+h(state.docsError)+'</p>':'')+
  '<div class="ins-responsive-table"><table><thead><tr>'+th+'</tr></thead><tbody>'+
- (trs||'<tr><td colspan="10">Nenhum documento encontrado para os filtros selecionados.</td></tr>')+
+ (trs||'<tr><td colspan="11">Nenhum documento encontrado para os filtros selecionados.</td></tr>')+
  '</tbody></table></div>'+
  '<div class="pagination"><span>'+list.length+' documentos · Página '+page+' de '+pages+'</span>'+
  '<div class="pagination-actions"><button type="button" class="btn btn-sm" data-action="docs-prev" '+(page<=1?'disabled':'')+'>Anterior</button>'+

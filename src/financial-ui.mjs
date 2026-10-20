@@ -19,7 +19,7 @@ export function renderFinanceDashboard(data,state){
  card('LIBERADOS SEM FATURA',num(t.withoutInvoice),'Requer conferência do número da fatura')+
  card('COM Nº DE FATURA',num(withInvoice),'Não comprova emissão ou recebimento')+
  card('TICKET MÉDIO',brl(t.freight.known?t.freight.sum/t.freight.known:null),'Somente pedidos com valores preenchidos')+
- '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button>'+ (SHOW_FINANCE_ONLY_TABS ? '<button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button>' : '')+'</div></section>'+
+ '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="gerencial">VISÃO GERENCIAL E GRÁFICOS →</button><button class="btn" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button>'+ (SHOW_FINANCE_ONLY_TABS ? '<button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button>' : '')+'</div></section>'+
  (SHOW_FINANCE_ONLY_TABS ? renderAdvanced('analises',data,{...state,search:''}) : '');
 }
 const comparisons=d=>{const t=buildInsights(d).totals;return [

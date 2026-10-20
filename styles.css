@@ -470,3 +470,29 @@ body{background:#08090b;color:#f6f7f8}
 .ins-compare-anchor label{display:flex;align-items:center;gap:7px}
 .ins-compare-anchor input{background:#1b1c1f;border:1px solid #393b42;border-radius:8px;color:#ececf1;padding:8px;color-scheme:dark}
 @media(max-width:780px){.ins-compare-actions .btn{width:100%}}
+
+/* Visão gerencial — gráficos horizontais compactos em HTML/CSS, sem bibliotecas extras. */
+.mgmt-dashboard{min-width:0}
+.mgmt-intro{font-size:12px;line-height:1.7;color:#aeb0ba;margin:2px 0 20px}
+.mgmt-chart-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:18px}
+.mgmt-chart{border:1px solid #393b44;background:#1a1b20;border-radius:12px;min-width:0;padding:18px}
+.mgmt-chart-head h3{font-size:13px;letter-spacing:.04em;margin:0 0 5px}
+.mgmt-chart-head small{font-size:11px;color:#aeb0ba}
+.mgmt-bars{display:grid;gap:13px;margin-top:18px}
+.mgmt-bar-row{min-width:0}
+.mgmt-bar-top{display:flex;justify-content:space-between;gap:10px;font-size:12px;margin-bottom:5px}
+.mgmt-bar-top span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;color:#eeeef1}
+.mgmt-bar-top strong{flex-shrink:0}
+.mgmt-bar-track{height:8px;background:#31323a;border-radius:8px;overflow:hidden}
+.mgmt-bar-fill{height:100%;background:linear-gradient(90deg,#971228,#ed354f);border-radius:8px}
+.mgmt-bar-row>small{display:block;margin-top:4px;color:#9fa3ae;font-size:10px}
+.mgmt-alerts,.mgmt-fields{margin-top:22px;padding:18px;border:1px solid #383a42;border-radius:12px}
+.mgmt-alerts h3,.mgmt-fields h3{font-size:13px;margin:0 0 8px}
+.mgmt-alerts>p,.mgmt-fields p{font-size:11px;color:#acafb8}
+.mgmt-alert-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+.mgmt-alert-grid article{padding:12px;background:#25262b;border-radius:9px;display:grid;gap:5px}
+.mgmt-alert-grid strong{font-size:21px}
+.mgmt-alert-grid span{font-size:12px;font-weight:700}
+.mgmt-alert-grid small{font-size:10px;color:#a5a6b0}
+@media(max-width:870px){.mgmt-chart-grid{grid-template-columns:1fr}.mgmt-alert-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.mgmt-alert-grid{grid-template-columns:1fr}}

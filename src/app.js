@@ -9,6 +9,7 @@ import {downloadXlsx,downloadFile,printReport} from './reporting.mjs';
 import {renderAdvanced,operationalFilters,renderInsightsStrip,renderReportHub,renderGrid,ADVANCED_VIEWS} from './advanced-ui.mjs';
 import {normalizeOverview,costByClient} from './dss-mapping.mjs';
 import {renderFinanceDashboard,renderFinanceComparison,renderComparisonSyncDialog} from './financial-ui.mjs';
+import {renderManagerialDashboard} from './managerial-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
 import {fetchAuthorizedDocuments,fetchAuthorizedOverview} from './dss-sync.mjs';
@@ -133,7 +134,7 @@ async function demoChangeOwnPassword(currentPassword,newPassword){
 const state = {
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
- docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsPage:1,syncProgress:'',syncError:'',
+ docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
@@ -211,7 +212,7 @@ function totals(data){
 }
 // As abas de Análises financeiras e Relatórios financeiros permanecem definidas
 // aqui para uso futuro, mas são filtradas por VISIBLE_VIEWS em access-ui.mjs.
-const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['documentos','doc','Documentos / NFS-e'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
+const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['documentos','doc','Documentos / NFS-e'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['gerencial','chart','Visão Gerencial'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
 const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],['entregas','Entregas'],['pendencias','Pendências'],['rotas','Rotas'],['veiculos','Frota'],['motoristas','Motoristas'],['ocorrencias','Ocorrências'],['mdfes','MDF-e'],['relatorios','Relatórios'],['faturamento','Faturamento'],['clientes','Clientes'],['analises','Análises financeiras'],['administracao','Administração'],['integracoes','Integração']];
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
@@ -220,7 +221,7 @@ function render(){
  // Os totais operacionais profundos eram calculados até em tabelas que não os utilizam.
  const d=scoped(),stats=['viagens','mdfes'].includes(state.view)?totals(d):null;
  const allowed=navItems.filter(x=>x[0]!=='integracoes'&&permittedView(state.role,x[0]));
- const PRIMARY=['painel','faturamento','documentos','ctes','clientes','analises','comparativos','relatorios'];
+ const PRIMARY=['painel','faturamento','documentos','ctes','clientes','gerencial','analises','comparativos','relatorios'];
  const secondary=allowed.filter(x=>!PRIMARY.includes(x[0]));
  const tab=(x,cl)=>'<button type="button" class="'+cl+' '+(state.view===x[0]?'active':'')+'" data-nav="'+x[0]+'" aria-current="'+(state.view===x[0]?'page':'false')+'">'+icon(x[1])+'<span>'+esc(x[2])+'</span></button>';
  const primary=allowed.filter(x=>PRIMARY.includes(x[0])).map(x=>tab(x,'v-nav-item')).join('');
@@ -284,6 +285,7 @@ function renderView(d,s){
  if(state.view==='painel')return renderFinanceDashboard(d,state);
  if(state.view==='comparativos')return renderFinanceComparison(d,state);
  if(state.view==='documentos')return renderElectronicDocuments(state.docsRows,state);
+ if(state.view==='gerencial')return renderManagerialDashboard(state.docsRows,d.pedidos,state);
  if(state.view==='graficos')return renderCharts(d,{financeiro:state.permissions.financeiro,interval:state.chartInterval});
  if(state.view==='viagens')return renderTripsHeader(d)+renderViagens(d,s);
  if(state.view==='ctes')return renderCtes(d);
@@ -880,7 +882,7 @@ root.addEventListener('click',e=>{
  const docSort=e.target.closest('[data-doc-sort]');
  if(docSort){
   const key=docSort.dataset.docSort;
-  if(['valorFinal','totalIss','dataEmissao','parceiro','numeroNfse','fatura','status','tipoOperacao','modelo','pontoApoio'].includes(key)){
+  if(['valorFinal','totalIss','dataEmissao','parceiro','numeroNfse','fatura','status','tipoOperacao','modelo','pontoApoio','id'].includes(key)){
    state.docsSortDir=state.docsSortKey===key&&state.docsSortDir==='desc'?'asc':'desc';
    state.docsSortKey=key;state.docsPage=1;render();
   }
@@ -927,7 +929,7 @@ root.addEventListener('click',e=>{
  if(action==='customer-detail-next'){state.clientDetailPage++;render();return;}
  if(action==='comparison-sync-cancel'){state.comparisonSyncOpen=false;render();}
  if(action==='comparison-sync-backdrop'&&e.target===act){state.comparisonSyncOpen=false;render();}
- if(action==='docs-clear-filters'){state.docsStatus='';state.docsModel='';state.docsSortKey='valorFinal';state.docsSortDir='desc';state.docsPage=1;state.search='';render();}
+ if(action==='docs-clear-filters'){state.docsStatus='';state.docsModel='';state.docsOperation='';state.docsSupport='';state.docsSortKey='valorFinal';state.docsSortDir='desc';state.docsPage=1;state.search='';render();}
  if(action==='docs-prev'&&state.docsPage>1){state.docsPage--;render();}
  if(action==='docs-next'){state.docsPage++;render();}
  if(action==='clear-search'){state.search='';state.page=1;state.docsPage=1;render();}
@@ -1011,6 +1013,8 @@ root.addEventListener('change',e=>{
  if(e.target.id==='docsSortDir'){state.docsSortDir=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='docsStatus'){state.docsStatus=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='docsModel'){state.docsModel=e.target.value;state.docsPage=1;render();}
+ if(e.target.id==='docsOperation'){state.docsOperation=e.target.value;state.docsPage=1;render();}
+ if(e.target.id==='docsSupport'){state.docsSupport=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='autoRefresh'){state.autoRefresh=0;activateRefresh();render();}
  if(e.target.id==='reportSelected'){state.reportSelected=e.target.value;render();}
  if(e.target.id==='reportMulti'){state.reportMulti=e.target.value==='all';render();}
