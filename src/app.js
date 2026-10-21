@@ -13,6 +13,7 @@ import {renderManagerialDashboard} from './managerial-ui.mjs';
 import {normalizeReceivables} from './receivables.mjs';
 import {loadReceivablesByPeriod} from './receivables-batch.mjs';
 import {renderReceivables,renderReceivablesTokenDialog,renderCompanyFilter} from './receivables-ui.mjs';
+import {overviewByCompany} from './companies.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
 import {fetchAuthorizedDocuments,fetchAuthorizedOverview,fetchAuthorizedReceivables} from './dss-sync.mjs';
@@ -197,7 +198,7 @@ function inRange(v){return !v||((!state.from||v>=state.from)&&(!state.to||v<=sta
 let scopedCache=null;
 function scoped(){
  const d=state.dataset;
- const cacheKey=[state.from,state.to,state.customer,state.vehicle,state.serviceType].join('|');
+ const cacheKey=[state.from,state.to,state.customer,state.vehicle,state.serviceType,state.recvCompany||'all'].join('|');
  if(scopedCache&&scopedCache.dataset===d&&scopedCache.key===cacheKey)return scopedCache.value;
  const matches=r=>(!state.customer||r.cliente===state.customer)&&(!state.vehicle||r.placa===state.vehicle);
  let viagens=d.viagens.filter(v=>inRange(v.data)&&matches(v));
@@ -207,7 +208,8 @@ function scoped(){
  const ocorrencias=(d.ocorrencias||[]).filter(x=>inRange(x.data)&&(!state.vehicle||x.placa===state.vehicle));
  if(state.serviceType)viagens=viagens.filter(v=>pedidos.some(p=>p.viagemId===v.id));
  const value={viagens,allViagens:d.viagens,ctes,pedidos,mdfes,ocorrencias,sources:d.sources};
- scopedCache={dataset:d,key:cacheKey,value};return value;
+ const segmented=overviewByCompany(value,state.recvCompany||'all');
+ scopedCache={dataset:d,key:cacheKey,value:segmented};return segmented;
 }
 function totals(data){
  const trips=data.viagens;const ctes=data.ctes;
@@ -258,7 +260,7 @@ function render(){
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
  '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:docsLive?'live':state.mode,financeiro:state.permissions.financeiro})+
  '<div class="v-tools-row">'+dateFilters+tools+'</div>'+renderSearchBar()+globalSearch+detailedFilters+message+
- (['painel','gerencial','receber'].includes(state.view)?renderCompanyFilter(state.recvRows,state):'')+
+ (['painel','faturamento','ctes','clientes','gerencial','receber','comparativos','analises'].includes(state.view)?renderCompanyFilter(state.recvRows,state):'')+
  (state.syncError?'<div class="info-strip error"><strong>Sincronização:</strong> '+esc(state.syncError)+'</div>':'')+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
