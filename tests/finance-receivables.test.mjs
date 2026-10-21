@@ -111,7 +111,9 @@ test('Render serve módulos importados, protege Contas a Receber e conserva a sa
  assert(backend.includes("url.pathname==='/api/health'"));
  const app=readFileSync('src/app.js','utf8');
  assert(app.includes("['receber','doc','Contas a Receber']"));
- assert(app.includes("loadReceivablesByPeriod({token,from,to,tipoRef:'E',concurrency:1})"));
- assert(app.includes("'Contas a Receber não sincronizado: '+receivables.message"));
+ assert(app.includes('loadReceivableReferences({token,from,to'));
+ assert(app.includes('state.recvReferenceCache=receivables;'));
+ assert(app.includes('referenceSelection(state.recvReferenceCache,state.recvRef)'));
+ assert(!app.includes("if(action==='recv-consult'"));
  assert(app.includes('renderReceivables(state.recvRows,state)'));
 });

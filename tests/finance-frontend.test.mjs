@@ -8,7 +8,7 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
  globalThis.window={location:{protocol:'https:',origin:'https://empresa.github.io',hostname:'empresa.github.io'}};
  globalThis.alert=()=>{};globalThis.confirm=()=>true;
  globalThis.document={getElementById:id=>id==='app'?root:id==='docsSyncToken'?syncToken:null,addEventListener(){},visibilityState:'visible'};
- let count=0;
+ let count=0,refQueries=[];
  globalThis.fetch=async()=>{throw Error('Não buscar DSS automaticamente na abertura pública');};
  await import('../src/app.js?finance-global-sync=1');
  assert(root.innerHTML.includes('RESUMO DE FATURAS'));
@@ -32,6 +32,16 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
   assert(url.startsWith('https://faturamento-sq74.onrender.com/api/'));
   if(url.includes('/api/documentos-eletronicos?'))
    return {status:200,ok:true,json:async()=>({registros:[{id:'1',numeroNfse:'NFS-2026-900',parceiro:'PARCEIRO TESTE',dataEmissao:'2026-10-19',valorFinal:42,totalIss:2}]})};
+  if(url.includes('/api/receivables?')){
+   const ref=new URL(url).searchParams.get('tipo_ref');
+   refQueries.push(ref);
+   return {status:200,ok:true,json:async()=>({registros:[{
+     empresa:'CRC COSTA',fatura:'REF-'+ref,parcela:'1/1',parceiro:'TESTE FINANCEIRO',
+     valor:ref==='E'?500:ref==='V'?300:200,valorPagamento:ref==='P'?200:0,
+     valorResidual:ref==='P'?0:100,dataEmissao:'2026-10-19',dataVencimento:'2026-10-20',
+     dataPagamento:ref==='P'?'2026-10-20':'',situacaoFatura:ref==='P'?'Pago':'Aberto'
+   }]})};
+  }
   if(url.includes('/api/overview?'))
    return {status:200,ok:true,json:async()=>({data:{
     viagens:[],pedidos:[{pf_id:900,nro_pf:900,cliente_nome:'EMPRESA TESTE',data_emissao:'2026-10-19',total_frete_pedido_frete:250}],
@@ -42,7 +52,8 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
  let prevented=false;
  events.submit({target:{id:'docsSyncForm'},preventDefault(){prevented=true;}});
  await new Promise(resolve=>setTimeout(resolve,10));
- assert(prevented);assert(count>=2,'Deve buscar documentos e pedidos');
+ assert(prevented);assert(count>=5,'Deve buscar documentos, pedidos e referências E/V/P');
+ assert.deepEqual([...new Set(refQueries)].sort(),['E','P','V']);
  assert.equal(syncToken.value,'','Token não deve ficar no input');
  assert(root.innerHTML.includes('DSS SINCRONIZADO'));
  assert(!root.innerHTML.includes('autorizacao-temporaria-teste-2026'));
@@ -54,6 +65,22 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
  assert(root.innerHTML.includes('CONSULTAR COMPARATIVO NO DSS'));
  assert(!root.innerHTML.includes('DSS SINCRONIZADO'));
  nav('painel');assert(root.innerHTML.includes('RESUMO DE FATURAS'));
+ nav('receber');
+ assert(root.innerHTML.includes('REF-E'));
+ assert(!root.innerHTML.includes('data-action="recv-consult"'));
+ assert(root.innerHTML.includes('data-action="recv-report-xlsx"'));
+ assert(root.innerHTML.includes('data-action="recv-report-csv"'));
+ assert(root.innerHTML.includes('data-action="recv-report-pdf"'));
+ const fetchedBeforeRefChange=count;
+ events.change({target:{id:'recvRef',value:'V',dataset:{}}});
+ assert(root.innerHTML.includes('REF-V'));
+ assert(!root.innerHTML.includes('REF-E'));
+ events.change({target:{id:'recvRef',value:'P',dataset:{}}});
+ assert(root.innerHTML.includes('REF-P'));
+ events.change({target:{id:'recvRef',value:'E',dataset:{}}});
+ assert(root.innerHTML.includes('REF-E'));
+ assert.equal(count,fetchedBeforeRefChange,'Troca E/V/P usa dados já sincronizados e não faz nova consulta');
+ nav('painel');
  assert(!storage.has('docsSyncToken'));
  // Alterar período invalida a cópia real de TODAS as abas.
  events.change({target:{id:'to',value:'2026-10-18',dataset:{}}});

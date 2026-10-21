@@ -630,3 +630,12 @@ body{background:#08090b;color:#f6f7f8}
 .finance-invoices .finance-source-warning{margin:13px 0;color:#e8bf96;font-size:12px;line-height:1.65}
 .finance-invoices .info-strip button{margin-left:10px}
 @media(max-width:700px){.finance-invoices .info-strip button{display:block;margin:9px 0 0}}
+
+/* Relatórios financeiros: botões juntos, acessíveis em telas menores. */
+.recv-export-toolbar{display:flex;gap:15px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:14px 0;padding:13px 15px;background:#222329;border:1px solid #363842;border-radius:10px}
+.recv-export-toolbar>div:first-child{display:grid;gap:5px}
+.recv-export-toolbar strong{font-size:12px;color:#f4f4f6}
+.recv-export-toolbar small{font-size:11px;color:#abadb7}
+.recv-export-actions{display:flex;gap:8px;flex-wrap:wrap}
+.recv-export-actions .btn{min-height:36px}
+@media(max-width:640px){.recv-export-actions{width:100%}.recv-export-actions .btn{flex:1 1 110px}}

@@ -167,13 +167,25 @@ export function renderReceivables(rows,state){
  const warnings=(state.recvError?'<div class="info-strip error">'+h(state.recvError)+'</div>':'')+
  (notices.length?'<section class="recv-data-warning"><strong>CONFERÊNCIA DOS CAMPOS FINANCEIROS</strong><ul>'+notices.map(msg=>'<li>'+h(msg)+'</li>').join('')+'</ul>'+
  '<p>Essas diferenças podem refletir campos não preenchidos na origem. Consulte a fatura no DSS antes de realizar cobranças.</p></section>':'');
+ if(state.recvLoading||state.recvSource==='pending'||state.recvSource==='unavailable'){
+  const message=state.recvLoading?'Sincronizando Contas a Receber com DSS...':
+   state.recvSource==='unavailable'?'Esta referência não foi carregada nesta sincronização. Consulte o erro abaixo e tente a sincronização principal novamente.':
+   'Ainda não há consulta para esta referência. Use o botão Sincronizar com DSS, ao lado das datas, para carregar Emissão, Vencimento e Pagamento.';
+  return '<section class="ins-module"><div class="section-title"><h2>CONTAS A RECEBER / PARCELAS</h2><span>Sem dados desta referência</span></div>'+
+   '<div class="info-strip">'+h(message)+'</div>'+
+   (state.recvError?'<div class="info-strip error">'+h(state.recvError)+'</div>':'')+
+   '<div class="recv-toolbar"><label>Referência do período<select class="control" id="recvRef">'+
+   '<option value="E" '+(ref==='E'?'selected':'')+'>Emissão (E)</option>'+
+   '<option value="V" '+(ref==='V'?'selected':'')+'>Vencimento (V)</option>'+
+   '<option value="P" '+(ref==='P'?'selected':'')+'>Pagamento (P)</option></select></label></div></section>';
+ }
  return '<section class="ins-module"><div class="section-title"><h2>CONTAS A RECEBER / PARCELAS</h2><span>'+h(source)+'</span></div>'+
- '<p class="ins-hint">Para períodos longos, o portal consulta o DSS mês a mês, sem mostrar totais incompletos. Em caso de tempo limite, o mês afetado será dividido em quinzenas automaticamente.</p>'+
- '<p class="ins-hint">A consulta considera '+h(GROUPS[ref][0].toLowerCase())+' no período selecionado. Selecione o referencial E / V / P para consultar emissão, vencimento ou pagamento. A opção P é exclusiva para parcelas pagas, conforme a documentação DSS.</p>'+
+ '<p class="ins-hint">A sincronização geral do DSS também carrega Contas a Receber nas três referências. Aqui você pode alternar entre os dados já consultados, sem informar o token novamente.</p>'+
+ '<p class="ins-hint">Referência escolhida: '+h(GROUPS[ref][0].toLowerCase())+'. Pagamento (P) inclui somente parcelas pagas cuja data de pagamento está no período; as três referências não são somadas entre si.</p>'+
  warnings+
  (state.recvCompany==='all'||!state.recvCompany?companyBreakdown(rows):'')+
  '<div class="recv-toolbar"><label>Referência do período<select class="control" id="recvRef"><option value="E" '+(ref==='E'?'selected':'')+'>Emissão (E)</option><option value="V" '+(ref==='V'?'selected':'')+'>Vencimento (V)</option><option value="P" '+(ref==='P'?'selected':'')+'>Pagamento (P)</option></select></label>'+
- '<button class="btn btn-red" type="button" data-action="recv-consult" '+(state.recvLoading?'disabled':'')+'>'+(state.recvLoading?h(state.recvProgress||'CONSULTANDO DSS...'):'CONSULTAR CONTAS A RECEBER NO DSS')+'</button>'+
+ 
  '<label>Vencimentos e prioridades<select class="control" id="recvQuick">'+
  '<option value="todos" '+(!state.recvQuick||state.recvQuick==='todos'?'selected':'')+'>Todas as parcelas</option>'+
  '<option value="vencidas" '+(state.recvQuick==='vencidas'?'selected':'')+'>Vencidas com saldo confirmado</option>'+
@@ -186,6 +198,10 @@ export function renderReceivables(rows,state){
  '<label>Ordem<select class="control" id="recvSortDir"><option value="desc" '+(state.recvSortDir==='desc'?'selected':'')+'>Maior / mais recente</option><option value="asc" '+(state.recvSortDir!=='desc'?'selected':'')+'>Menor / mais antigo</option></select></label>'+
  '<button type="button" class="btn" data-action="recv-clear">Limpar filtros</button></div>'+
  '<div class="v-search-row"><div class="v-search-field"><input id="recvSearchInput" type="search" class="control full" autocomplete="off" placeholder="Pesquise parceiro, parcela, fatura, CNPJ, conta ou qualquer campo..." value="'+h(state.recvSearch||'')+'"></div></div>'+
+ (state.recvSource==='live'&&!state.recvLoading?'<div class="recv-export-toolbar"><div><strong>Relatórios de Contas a Receber</strong><small>Arquivos de todas as parcelas filtradas, não apenas desta página.</small></div><div class="recv-export-actions">'+
+ '<button type="button" class="btn btn-sm" data-action="recv-report-xlsx">Baixar Excel</button>'+
+ '<button type="button" class="btn btn-sm" data-action="recv-report-csv">Baixar CSV</button>'+
+ '<button type="button" class="btn btn-sm" data-action="recv-report-pdf">Imprimir / PDF</button></div></div>':'')+
  '<div class="kpis">'+card('PARCELAS',num(summary.count),'Registros após filtros')+
  card('VALOR NOMINAL DAS PARCELAS',summary.faceKnown?brl(summary.face):'—',num(summary.faceKnown)+' valores informados')+
  card('PAGAMENTO INFORMADO PELO DSS',summary.paidKnown?brl(summary.paid):'—',num(summary.paidKnown)+' valores preenchidos; conferir divergências')+

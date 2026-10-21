@@ -11,7 +11,10 @@ import {normalizeOverview,costByClient} from './dss-mapping.mjs';
 import {renderFinanceDashboard,renderFinanceComparison,renderComparisonSyncDialog} from './financial-ui.mjs';
 import {renderManagerialDashboard} from './managerial-ui.mjs';
 import {normalizeReceivables} from './receivables.mjs';
-import {loadReceivablesByPeriod} from './receivables-batch.mjs';
+import {RECEIVABLE_FIELDS,RECEIVABLE_NUMBERS,RECEIVABLE_DATES} from './receivables.mjs';
+import {filteredReceivables} from './receivables-ui.mjs';
+import {loadReceivableReferences,referenceSelection} from './receivables-references.mjs';
+import {receivablesReport,receivablesCsv} from './receivables-report.mjs';
 import {renderReceivables,renderReceivablesTokenDialog,renderCompanyFilter} from './receivables-ui.mjs';
 import {overviewByCompany} from './companies.mjs';
 import {renderReconciliation} from './reconciliation-ui.mjs';
@@ -140,7 +143,7 @@ const state = {
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
  docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,
- recvRows:normalizeReceivables({status:200,registros:[
+ recvReferenceCache:null,recvRows:normalizeReceivables({status:200,registros:[
  {empresa:'EXEMPLO',dataEmissao:'2026-10-01',parceiro:'PARCEIRO FICTÍCIO A',parcela:'1/2',fatura:'DEMO-001',
  situacaoFatura:'EM ABERTO',dataVencimento:'2026-10-28',valor:1500,valorPagamento:0,valorResidual:1500,tipoFatura:'Transporte'},
  {empresa:'EXEMPLO',dataEmissao:'2026-10-02',parceiro:'PARCEIRO FICTÍCIO B',parcela:'1/1',fatura:'DEMO-002',
@@ -274,7 +277,7 @@ function render(){
  (state.selected?renderDrawer(d):'')+
  (state.docsSyncOpen?renderDocumentsSyncDialog(state):'')+
  (state.comparisonSyncOpen?renderComparisonSyncDialog(state):'')+
- (state.recvDialogOpen?renderReceivablesTokenDialog(state):'');
+ '';
 }
 function renderFilters(){
  if(state.view==='integracoes'||state.view==='comparativos')return '';
@@ -752,8 +755,7 @@ function invalidateSyncedDocuments(){
   state.docsRows=[];state.docsSource='pending';state.docsUpdatedAt='';
   state.lastSync=null;state.prevDataset=null;
  }
- receivablesEpoch++;
- state.recvLoading=false;state.recvProgress='';
+ state.recvLoading=false;state.recvProgress='';state.recvReferenceCache=null;
  state.docsLoading=false;state.syncProgress='';state.syncError='';state.docsError='';state.page=1;state.docsPage=1;
  if(state.recvSource!=='demo'){state.recvRows=[];state.recvSource='pending';state.recvError='';state.recvPage=1;}
  scopedCache=null;
@@ -767,7 +769,7 @@ function mergeOverviewResponses(responses){
 /** Só confirma a sincronização se NFS-e e TODAS as consultas mensais tiverem sucesso. */
 async function synchronizeElectronicDocuments(token){
  const epoch=++documentsSyncEpoch,from=state.from,to=state.to;
- state.docsSyncOpen=false;state.docsLoading=true;state.docsError='';state.syncError='';
+ state.docsSyncOpen=false;state.docsLoading=true;state.recvLoading=true;state.docsError='';state.syncError='';
  state.syncProgress='Consultando DSS...';render();
  try{
   const windows=splitMonths(from,to),results=new Array(windows.length);
@@ -785,18 +787,21 @@ async function synchronizeElectronicDocuments(token){
   const [rows,,receivables]=await Promise.all([
    fetchAuthorizedDocuments({token,from,to}),
    Promise.all(Array.from({length:Math.min(2,windows.length)},worker)),
-   loadReceivablesByPeriod({token,from,to,tipoRef:'E',concurrency:1})
-    .then(records=>({ok:true,records}))
-    .catch(error=>({ok:false,message:String(error?.message||'Consulta indisponível').slice(0,230)}))
+   loadReceivableReferences({token,from,to,onProgress(ref,done,total){
+     if(epoch!==documentsSyncEpoch)return;
+     const target=document.querySelector?.('[data-action="docs-sync-open"]');
+     if(target)target.textContent='DSS: Contas '+ref+' '+done+'/'+total;
+    }})
   ]);
   if(epoch!==documentsSyncEpoch||from!==state.from||to!==state.to)return;
   const normalized=mergeOverviewResponses(results);
   // Commit atômico: não misturar dados de fontes e períodos diferentes.
   state.dataset=normalized;state.docsRows=rows;state.mode='live';state.docsSource='live';
-  state.recvRef='E';state.recvRows=receivables.ok?receivables.records:[];
-  state.recvProgress='';
-  state.recvSource=receivables.ok?'live':'unavailable';
-  state.recvError=receivables.ok?'':'Contas a Receber não sincronizado: '+receivables.message;
+  state.recvReferenceCache=receivables;
+  const selected=referenceSelection(receivables,state.recvRef);
+  state.recvRows=selected.rows;state.recvProgress='';
+  state.recvSource=selected.source;
+  state.recvError=selected.error;
   state.recvPage=1;
   state.loadedRange={from,to};state.docsUpdatedAt=new Date().toLocaleString('pt-BR');
   state.lastSync=new Date().toISOString();state.prevDataset=null;
@@ -806,35 +811,10 @@ async function synchronizeElectronicDocuments(token){
   const msg=String(error?.message||'O DSS não respondeu.').slice(0,240);
   state.syncError=msg;state.docsError=msg;
  }finally{
-  if(epoch===documentsSyncEpoch){state.docsLoading=false;state.syncProgress='';render();}
+  if(epoch===documentsSyncEpoch){state.docsLoading=false;state.recvLoading=false;state.syncProgress='';render();}
  }
 }
 
-let receivablesEpoch=0;
-/** Atualiza apenas a aba de Contas a Receber, sem alterar a sincronização global. */
-async function consultReceivables(token){
- const epoch=++receivablesEpoch,from=state.from,to=state.to,tipoRef=state.recvRef;
- state.recvDialogOpen=false;state.recvLoading=true;state.recvError='';state.recvProgress='Iniciando consulta mensal...';render();
- try{
-  const rows=await loadReceivablesByPeriod({token,from,to,tipoRef,concurrency:1,
-   onProgress(done,total){
-    if(epoch!==receivablesEpoch||from!==state.from||to!==state.to||tipoRef!==state.recvRef)return;
-    state.recvProgress='Consultados '+done+' de '+total+' meses';
-    const button=document.querySelector?.('[data-action="recv-consult"]');
-    if(button)button.textContent=state.recvProgress;
-   }
-  });
-  if(epoch!==receivablesEpoch||from!==state.from||to!==state.to||tipoRef!==state.recvRef)return;
-  state.recvRows=rows;state.recvSource='live';state.recvPage=1;
- }catch(error){
-  if(epoch===receivablesEpoch){
-   state.recvError=String(error?.message||'Consulta indisponível').slice(0,230);
-   state.recvSource='unavailable';state.recvRows=[];
-  }
- }finally{
-  if(epoch===receivablesEpoch){state.recvLoading=false;state.recvProgress='';render();}
- }
-}
 function exportAdvanced(type,format){
  const raw=scoped(),full=state.reportMulti&&format==='xlsx';
  const d={...raw,
@@ -1001,11 +981,24 @@ root.addEventListener('click',e=>{
  }
  if(action==='docs-sync-open'&&!state.docsLoading){state.docsSyncOpen=true;render();document.getElementById('docsSyncToken')?.focus();}
  if(action==='docs-sync-cancel'){state.docsSyncOpen=false;render();}
- if(action==='recv-consult'&&!state.recvLoading){state.recvDialogOpen=true;render();document.getElementById('receivablesSyncToken')?.focus();}
- if(action==='recv-cancel'){state.recvDialogOpen=false;render();}
- if(action==='recv-cancel-overlay'&&e.target===act){state.recvDialogOpen=false;render();}
  if(action==='recv-prev'&&state.recvPage>1){state.recvPage--;render();}
  if(action==='recv-next'){state.recvPage++;render();}
+ if(['recv-report-xlsx','recv-report-csv','recv-report-pdf'].includes(action)){
+  if(state.recvSource!=='live'||state.recvLoading){alert('Sincronize Contas a Receber antes de exportar.');return;}
+  try{
+   const isPdf=action==='recv-report-pdf';
+   const report=receivablesReport(state.recvRows,state,{compact:isPdf});
+   const reference=state.recvRef||'E';
+   const company=state.recvCompany||'all';
+   const suffix=[state.from,state.to,reference,company].map(x=>String(x).replace(/[^a-zA-Z0-9_-]/g,'_')).join('_');
+   const meta={mode:'live',from:state.from,to:state.to};
+   if(action==='recv-report-xlsx')downloadXlsx(report,meta,'COSTALOG_Contas_a_Receber_'+suffix+'.xlsx');
+   if(action==='recv-report-csv')downloadFile(new TextEncoder().encode(receivablesCsv(report)),
+     'COSTALOG_Contas_a_Receber_'+suffix+'.csv','text/csv;charset=utf-8');
+   if(isPdf)printReport(report,meta);
+  }catch(error){alert('Não foi possível gerar o relatório: '+error.message);}
+  return;
+ }
  if(action==='recv-clear'){state.recvStatus='';state.recvSearch='';state.recvQuick='todos';state.recvSortKey='prioridade';state.recvSortDir='asc';state.recvPage=1;render();}
  if(action==='toggle-advanced-filters'){state.extraFiltersOpen=!state.extraFiltersOpen;render();return;}
  if(action==='recon-clear'){state.reconStatus='todos';state.reconOrder='prioridade';state.reconSearch='';state.reconPage=1;render();return;}
@@ -1045,13 +1038,6 @@ root.addEventListener('click',e=>{
  // Não há sessão para encerrar nem credenciais para validar.
 });
 root.addEventListener('submit',e=>{
- if(e.target?.id==='receivablesSyncForm'){
-  e.preventDefault();
-  const input=document.getElementById('receivablesSyncToken'),token=input?.value||'';
-  if(input)input.value='';
-  consultReceivables(token);
-  return;
- }
  if(e.target?.id==='comparisonSyncForm'){
   e.preventDefault();
   const input=document.getElementById('comparisonSyncToken'),token=input?.value||'';
@@ -1107,10 +1093,11 @@ root.addEventListener('change',e=>{
  if(e.target.id==='docsStatus'){state.docsStatus=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='docsModel'){state.docsModel=e.target.value;state.docsPage=1;render();}
  if(e.target.id==='recvRef'){
-  receivablesEpoch++;state.recvLoading=false;state.recvProgress='';
-  state.recvRef=e.target.value;state.recvRows=[];state.recvSource='pending';
+  state.recvRef=e.target.value;
+  const selection=referenceSelection(state.recvReferenceCache,state.recvRef);
+  state.recvRows=selection.rows;state.recvSource=selection.source;state.recvError=selection.error;
   state.recvQuick='todos';state.recvSortKey=state.recvRef==='P'?'dataPagamento':'prioridade';state.recvSortDir=state.recvRef==='P'?'desc':'asc';
-  state.recvStatus='';state.recvError='';state.recvPage=1;render();return;
+  state.recvStatus='';state.recvPage=1;render();return;
  }
  if(e.target.id==='recvCompany'){state.recvCompany=e.target.value;state.recvPage=1;state.reconPage=1;state.page=1;render();return;}
  if(e.target.id==='reconStatus'){state.reconStatus=e.target.value;state.reconPage=1;render();return;}

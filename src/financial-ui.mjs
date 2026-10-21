@@ -19,7 +19,7 @@ export function renderFinanceDashboard(_orders,state){
  const moneyOrDash=(amount,known)=>financial&&known?brl(amount):'—';
  const unavailable=state.recvLoading?'Consultando faturas...':
   state.recvSource==='unavailable'?'Não foi possível consultar Contas a Receber. Confira o erro na aba financeira.':
-  'As faturas ainda não foram consultadas neste período. Sincronize o DSS ou consulte Contas a Receber.';
+  'As faturas ainda não foram consultadas neste período. Clique em Sincronizar com DSS, junto às datas, para carregar as três referências.';
  return '<section class="ins-module finance-invoices"><div class="section-title"><h2>RESUMO DE FATURAS</h2>'+
  '<span>'+(loaded?'Fonte: Contas a Receber • DSS':'Aguardando dados financeiros')+'</span></div>'+
  '<p class="ins-hint">Resumo baseado exclusivamente nas faturas e parcelas do módulo Contas a Receber. Não inclui valores de pedidos de frete.</p>'+
