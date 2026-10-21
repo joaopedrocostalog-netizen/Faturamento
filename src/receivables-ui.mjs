@@ -85,7 +85,7 @@ export function renderCompanyFilter(rows,state){
  const selected=state.recvCompany||COMPANY_ALL;
  const distribution=companyDistribution(rows);
  return '<section class="recv-enterprises"><div class="recv-enterprise-toolbar">'+
- '<div><strong>EMPRESAS DO GRUPO</strong><p>Filtre recebíveis, indicadores e gráficos pela empresa proprietária da parcela (campo empresa da API).</p></div>'+
+ '<div><strong>EMPRESAS DO GRUPO</strong><p>Filtre parcelas, pedidos e viagens pelo campo empresa das respectivas APIs DSS. A contagem dos cartões abaixo se refere somente a parcelas; NFS-e sem empresa não é separada.</p></div>'+
  '<label for="recvCompany">Empresa<select class="control" id="recvCompany">'+
  '<option value="all" '+(selected===COMPANY_ALL?'selected':'')+'>Todas as empresas</option>'+
  COSTALOG_COMPANIES.map(k=>'<option value="'+h(k)+'" '+(selected===k?'selected':'')+'>'+h(k)+'</option>').join('')+

@@ -3,6 +3,7 @@
  */
 import {receivablesSummary} from './receivables.mjs';
 import {receivablesByCompany} from './companies.mjs';
+import {renderOperationalCompanies} from './company-operations-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const money=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:2}).format(v):'—';
 const n=v=>new Intl.NumberFormat('pt-BR').format(v);
@@ -75,7 +76,7 @@ export function renderManagerialDashboard(documents,orders=[],state={}){
  kpi('COM FATURA',n(s.withFatura),'Não significa valor recebido')+
  (receivable?kpi('SALDO RESIDUAL A RECEBER',receivable.residualKnown?money(receivable.residual):'—','DSS Contas a Receber; '+n(receivable.residualKnown)+' saldos conhecidos'):'')+
  (receivable?kpi('PARCELAS VENCIDAS COM SALDO',n(receivable.lateCount),'Vencimento passado e valor residual positivo'):'')+
- '</div>'+
+ '</div>'+renderOperationalCompanies({pedidos:orders},state)+
  '<div class="mgmt-chart-grid">'+trend(s.meses)+chart('Valor por tipo de operação','Soma do valor_final informado',s.operacoes)+
  chart('Principais parceiros','Valor final de documentos por parceiro',s.parceiros)+
  chart('Documentos por situação','Classificação textual recebida do DSS',s.situacoes,{moneyAxis:false,top:10})+

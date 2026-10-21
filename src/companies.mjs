@@ -35,3 +35,34 @@ export function companyDistribution(rows){
  }
  return [...counts].map(([name,count])=>({name,count}));
 }
+
+/** As APIs listarViagens e listarPedidosFrete incluem empresa como campo explícito.
+ * A empresa operacional é a dona da operação, não o parceiro nem o cliente predominante.
+ */
+export const companyOfOperation=companyOfReceivable;
+const overviewCompanyCache=new WeakMap();
+export function overviewByCompany(data,company=COMPANY_ALL){
+ if(!data||company===COMPANY_ALL)return data;
+ let saved=overviewCompanyCache.get(data);
+ if(!saved){saved=new Map();overviewCompanyCache.set(data,saved);}
+ if(saved.has(company))return saved.get(company);
+ const matching=rows=>(rows||[]).filter(row=>companyOfOperation(row)===company);
+ const viagens=matching(data.viagens),pedidos=matching(data.pedidos),ctes=matching(data.ctes);
+ // MDF-es e ocorrências não trazem empresa nessa integração e ficam fora dos totais segmentados.
+ const result={...data,viagens,pedidos,ctes,allViagens:matching(data.allViagens||data.viagens),
+  mdfes:[],ocorrencias:[],sources:{...data.sources,mdfes:false,ocorrencias:false}};
+ saved.set(company,result);
+ return result;
+}
+export function operationalCompanyMetrics(data){
+ const rows=data?.pedidos||[],trips=data?.viagens||[];
+ const group=new Map([...COSTALOG_COMPANIES,COMPANY_UNIDENTIFIED].map(name=>[name,
+  {name,pedidos:0,viagens:0,valorFrete:0,fretesComValor:0,valorReceber:0,receberComValor:0}]));
+ for(const v of trips)group.get(companyOfOperation(v)).viagens++;
+ for(const p of rows){
+  const x=group.get(companyOfOperation(p));x.pedidos++;
+  if(Number.isFinite(p.valor)){x.valorFrete+=p.valor;x.fretesComValor++;}
+  if(Number.isFinite(p.valorReceber)){x.valorReceber+=p.valorReceber;x.receberComValor++;}
+ }
+ return [...group.values()];
+}

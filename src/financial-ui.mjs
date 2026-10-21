@@ -1,7 +1,8 @@
 /** COSTALOG Financeiro — apresenta somente indicadores e registros de faturamento. */
 import {buildInsights} from './operational.mjs';
 import {receivablesSummary} from './receivables.mjs';
-import {receivablesByCompany} from './companies.mjs';
+import {receivablesByCompany,overviewByCompany} from './companies.mjs';
+import {renderOperationalCompanies} from './company-operations-ui.mjs';
 import {renderAdvanced} from './advanced-ui.mjs';
 import {SHOW_FINANCE_ONLY_TABS} from './access-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -24,7 +25,7 @@ export function renderFinanceDashboard(data,state){
  card('TICKET MÉDIO',brl(t.freight.known?t.freight.sum/t.freight.known:null),'Somente pedidos com valores preenchidos')+
  (financial?card('SALDO RESIDUAL A RECEBER',financial.residualKnown?brl(financial.residual):'—','Empresa: '+(state.recvCompany==='all'?'Todas':state.recvCompany)+' · Parcelas DSS (referência: '+(state.recvRef==='E'?'emissão':state.recvRef==='V'?'vencimento':'pagamento')+')'):'')+
  (financial?card('PARCELAS COM VENCIMENTO PASSADO',num(financial.lateCount),'Com residual positivo e vencimento anterior a hoje'):'')+
- '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="gerencial">VISÃO GERENCIAL E GRÁFICOS →</button><button class="btn" data-nav="receber">CONTAS A RECEBER →</button><button class="btn" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button>'+ (SHOW_FINANCE_ONLY_TABS ? '<button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button>' : '')+'</div></section>'+
+ '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="gerencial">VISÃO GERENCIAL E GRÁFICOS →</button><button class="btn" data-nav="receber">CONTAS A RECEBER →</button><button class="btn" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button>'+ (SHOW_FINANCE_ONLY_TABS ? '<button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button>' : '')+'</div></section>'+renderOperationalCompanies(data,state)+
  (SHOW_FINANCE_ONLY_TABS ? renderAdvanced('analises',data,{...state,search:''}) : '');
 }
 const comparisons=d=>{const t=buildInsights(d).totals;return [
@@ -42,7 +43,7 @@ export function renderFinanceComparison(data,state){
  // Comparativo independente: não herdar ou recalcular usando a sincronização global.
  const c=state.comparison;
  const ready=c&&c.currentRange?.from===current.from&&c.currentRange?.to===current.to&&c.previousRange?.from===previous.from&&c.previousRange?.to===previous.to;
- const left=ready?comparisons(c.current):[],right=ready?comparisons(c.previous):[];
+ const left=ready?comparisons(overviewByCompany(c.current,state.recvCompany||'all')):[],right=ready?comparisons(overviewByCompany(c.previous,state.recvCompany||'all')):[];
  const lines=left.map((m,i)=>{
    const prev=right[i].value,delta=m.value===null||prev===null?null:m.value-prev;
    const percent=delta!==null&&prev!==0?delta/Math.abs(prev)*100:null;
@@ -55,7 +56,7 @@ export function renderFinanceComparison(data,state){
  '<div class="ins-compare-actions"><button type="button" class="btn btn-red" data-ins-action="load-comparison" '+(state.comparisonLoading?'disabled':'')+'>'+(state.comparisonLoading?'CONSULTANDO COMPARATIVO...':'CONSULTAR COMPARATIVO NO DSS')+'</button>'+
  '<span>Consulta exclusiva do Comparativo. Não modifica o período global nem as outras abas.</span></div>'+
  (!ready&&!state.comparisonLoading?'<div class="ins-compare-init"><p>Selecione as datas dos períodos A e B e clique em CONSULTAR COMPARATIVO NO DSS. Os períodos podem ser diferentes do intervalo do Painel.</p></div>':'')+
- (ready?'<p class="ins-hint">Resultado real do DSS somente para os dois períodos selecionados.</p>':'')+
+ (ready?'<p class="ins-hint">Resultado real do DSS somente para os dois períodos selecionados. Empresa: '+esc(state.recvCompany==='all'||!state.recvCompany?'Todas':state.recvCompany)+'. A empresa não altera as datas do Comparativo.</p>':'')+
  (state.comparisonLoading?'<p class="ins-hint">Consultando os dois períodos no DSS; o restante do site não será alterado.</p>':'')+(state.comparisonError?'<p class="ins-inline-error">'+esc(state.comparisonError)+'</p>':'')+
  (ready?'<div class="ins-responsive-table"><table><thead><tr><th>Indicador</th><th>Período A</th><th>Período B</th><th>Diferença</th><th>Variação</th></tr></thead><tbody>'+lines+'</tbody></table></div>':'')+
  '<p class="ins-hint">Frete informado não comprova recebimento. Valores ausentes não são tratados como zero; variações com base zero não são calculadas.</p></section>';

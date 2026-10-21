@@ -406,7 +406,7 @@ function renderCtes(d){
  if(state.filter==='pendente')rows=rows.filter(x=>!x.viagemId);
  const cols=[
   {key:'numero',label:'Nº documento',detail:'ctes'},{key:'pedidoNumero',label:'Pedido PF'},
-  {key:'cteNumero',label:'CT-e'},{key:'data',label:'Emissão',format:'date'},{key:'dataCte',label:'Emissão CT-e',format:'date'},
+  {key:'cteNumero',label:'CT-e'},{key:'empresa',label:'Empresa (DSS)'},{key:'data',label:'Emissão',format:'date'},{key:'dataCte',label:'Emissão CT-e',format:'date'},
   {key:'cliente',label:'Cliente'},{key:'motoristaNome',label:'Motorista'}, {key:'placa',label:'Placa'},
   {key:'rvReferencia',label:'RV ref.'},{key:'nroMdf',label:'MDF-e ref.'},
   {key:'valor',label:'Valor frete',format:'money'},{key:'valorReceber',label:'Valor a receber',format:'money'},

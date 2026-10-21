@@ -530,3 +530,14 @@ body{background:#08090b;color:#f6f7f8}
 .recv-company-group>div b{font-size:12px;white-space:nowrap}
 @media(max-width:1040px){.recv-company-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:620px){.recv-company-breakdown{grid-template-columns:1fr}}
+
+/* Barras gerenciais de pedidos/viagens por empresa: nenhuma lib adicional */
+.company-ops-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0}
+.company-ops-item{min-width:0;display:grid;gap:8px;padding:13px;background:#25262b;border:1px solid #363943;border-radius:10px}
+.company-ops-item>strong{font-size:12px;overflow-wrap:anywhere}
+.company-ops-item>small{color:#b7bbc5;font-size:11px}
+.company-ops .mgmt-bar-track{height:9px;border-radius:6px;background:#33353d;overflow:hidden}
+.company-ops .mgmt-bar-fill{height:100%;background:linear-gradient(90deg,#a41930,#e83a55);border-radius:6px}
+.company-ops-values{display:flex;align-items:start;justify-content:space-between;gap:6px;flex-wrap:wrap}
+.company-ops-values>span{font-size:11px;color:#c7c8cd}
+@media(max-width:780px){.company-ops-grid{grid-template-columns:1fr}}
