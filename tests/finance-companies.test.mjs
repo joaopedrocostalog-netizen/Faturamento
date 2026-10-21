@@ -60,7 +60,7 @@ test('O servidor entrega o módulo novo no Render e o filtro usa somente o campo
  const server=readFileSync('api/server.mjs','utf8'),app=readFileSync('src/app.js','utf8');
  assert(server.includes("'companies.mjs'"));
  assert(app.includes("if(e.target.id==='recvCompany')"));
- assert(app.includes("renderCompanyFilter(state.recvRows,state)"));
+ assert(app.includes("renderCompanyFilter(state.recvRows,state,state.dataset)"));
  const source=readFileSync('src/companies.mjs','utf8');
  assert(!source.includes('row?.parceiro'));
 });
