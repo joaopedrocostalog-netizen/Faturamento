@@ -83,31 +83,39 @@ function agingTable(rows){
 const companyTitle=k=>k===COMPANY_UNIDENTIFIED?'Outras / não identificadas':k;
 export function renderCompanyFilter(rows,state,operations={}){
  const selected=state.recvCompany||COMPANY_ALL;
- const distribution=companyDistribution(rows),orders=operationalCompanyMetrics(operations);
- const operationalView=['faturamento','ctes','clientes','conciliacao','comparativos','analises'].includes(state.view);
- const operationalCounts=new Map(orders.map(x=>[x.name,x.pedidos]));
+ const distribution=companyDistribution(state.recvSource==='live'?rows:[]);
+ const operationalView=['painel','gerencial','faturamento','ctes','clientes','conciliacao','comparativos','analises'].includes(state.view);
+ const comparison=state.view==='comparativos';
+ const sourceReady=operationalView?(comparison?state.comparison?.source==='DSS':state.mode==='live'&&!state.docsLoading):state.recvSource==='live'&&!state.recvLoading;
+ const currentOperations=comparison&&state.comparison?.source==='DSS'?state.comparison.current:operations;
+ const hint=sourceReady?'Os números representam '+(operationalView?'pedidos de frete':'parcelas a receber')+' no período, não pagamentos.':
+   'As quantidades aparecem após sincronizar o DSS; “—” não significa que a empresa tenha zero registros.';
+ const unready=state.recvLoading&&!operationalView?'Consultando...':
+   state.docsLoading&&operationalView?'Sincronizando...':
+   state.recvSource==='unavailable'&&!operationalView?'Consulta indisponível':'Não consultado';
+ const operationalCounts=new Map(operationalView?operationalCompanyMetrics(currentOperations).map(x=>[x.name,x.pedidos]):[]);
  const unit=operationalView?'pedido':'parcela';
  const quantity=(name,count)=>operationalView?(operationalCounts.get(name)||0):count;
- const cards=[{name:COMPANY_ALL,count:operationalView?orders.reduce((sum,x)=>sum+x.pedidos,0):rows.length},...distribution];
+ const cards=[{name:COMPANY_ALL,count:operationalView?[...operationalCounts.values()].reduce((a,b)=>a+b,0):rows.length},...distribution];
  const card=({name,count})=>{
-  const current=selected===name,amount=name===COMPANY_ALL?count:quantity(name,count);
+  const current=selected===name,amount=name===COMPANY_ALL?count:quantity(name,count),shown=sourceReady?num(amount):'—',caption=sourceReady?unit+(amount===1?'':'s'):unready;
   return '<button type="button" class="recv-company-tile'+(current?' active':'')+
    '" data-company-select="'+h(name)+'" aria-pressed="'+(current?'true':'false')+
-   '" aria-label="Filtrar por '+h(name===COMPANY_ALL?'todas as empresas':companyTitle(name))+': '+num(amount)+' '+unit+(amount===1?'':'s')+'">'+
+   '" aria-label="Filtrar por '+h(name===COMPANY_ALL?'todas as empresas':companyTitle(name))+': '+h(sourceReady?num(amount)+' '+caption:caption)+'">'+
    '<span class="recv-company-name">'+h(name===COMPANY_ALL?'Todas as empresas':companyTitle(name))+'</span>'+
-   '<span class="recv-company-total"><strong>'+num(amount)+'</strong><small>'+unit+(amount===1?'':'s')+'</small></span>'+
+   '<span class="recv-company-total"><strong>'+shown+'</strong><small>'+h(caption)+'</small></span>'+
    '</button>';
  };
  return '<section class="recv-enterprises" aria-label="Escolher empresa">'+
  '<div class="recv-enterprise-toolbar">'+
  '<div class="recv-enterprise-heading"><span class="recv-enterprise-eyebrow">VISUALIZAÇÃO POR EMPRESA</span>'+
- '<h3>Empresas do grupo</h3><p>Selecione uma empresa para consultar os seus registros. Os valores exibidos seguem os filtros da página.</p></div>'+
+ '<h3>Empresas do grupo</h3><p>Selecione uma empresa para consultar os seus registros. '+h(hint)+'</p></div>'+
  '<label class="recv-company-select-label" for="recvCompany">Filtrar por empresa<select class="control" id="recvCompany">'+
  '<option value="all" '+(selected===COMPANY_ALL?'selected':'')+'>Todas as empresas</option>'+
  COSTALOG_COMPANIES.map(k=>'<option value="'+h(k)+'" '+(selected===k?'selected':'')+'>'+h(k)+'</option>').join('')+
  '<option value="unidentified" '+(selected===COMPANY_UNIDENTIFIED?'selected':'')+'>Outras / não identificadas</option></select></label></div>'+
  '<div class="recv-company-summaries">'+cards.map(card).join('')+'</div>'+
- (distribution.at(-1)?.count?'<p class="recv-company-note">Registros sem empresa identificada ficam separados para não misturar informações.</p>':'')+
+ (sourceReady&&!operationalView&&distribution.at(-1)?.count?'<p class="recv-company-note">Registros sem empresa identificada ficam separados para não misturar informações.</p>':'')+
  '</section>';
 }
 function companyBreakdown(rows){

@@ -66,7 +66,7 @@ test('O servidor entrega o módulo novo no Render e o filtro usa somente o campo
 });
 
 test('Cartões de empresas: tema escuro, seleção e responsividade',()=>{
- const markup=renderCompanyFilter(data,{view:'receber',recvCompany:'CRC COSTA'});
+ const markup=renderCompanyFilter(data,{view:'receber',recvSource:'live',recvCompany:'CRC COSTA'});
  assert(markup.includes('aria-label="Escolher empresa"'));
  assert(markup.includes('data-company-select="all"'));
  assert(markup.includes('aria-pressed="true"'));
@@ -82,4 +82,35 @@ test('Cartões de empresas: tema escuro, seleção e responsividade',()=>{
  assert(css.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
  assert(css.includes('@media(max-width:420px)'));
  assert(css.includes('prefers-reduced-motion'));
+});
+
+test('Cartões diferenciam registros não consultados de resultado real zero',()=>{
+ const pending=renderCompanyFilter([],{view:'receber',recvSource:'pending'});
+ assert(pending.includes('<strong>—</strong><small>Não consultado</small>'));
+ assert(!pending.includes('<strong>0</strong><small>parcelas</small>'));
+ const fail=renderCompanyFilter([],{view:'receber',recvSource:'unavailable'});
+ assert(fail.includes('Consulta indisponível'));
+ const ongoing=renderCompanyFilter([],{view:'receber',recvLoading:true,recvSource:'pending'});
+ assert(ongoing.includes('Consultando...'));
+ const realZero=renderCompanyFilter([],{view:'receber',recvSource:'live'});
+ assert(realZero.includes('<strong>0</strong><small>parcelas</small>'));
+});
+test('Painel e gerência exibem pedidos, sem usar parcelas não consultadas',()=>{
+ const operations={pedidos:[{empresa:'CRC COSTA'},{empresa:'CRC COSTA'},{empresa:'IDEALLOG'}],viagens:[]};
+ for(const view of ['painel','gerencial']){
+  const page=renderCompanyFilter([],{view,mode:'live',recvSource:'pending'},operations);
+  assert(page.includes('<strong>3</strong><small>pedidos</small>'));
+  assert(page.includes('<strong>2</strong><small>pedidos</small>'));
+  const noSync=renderCompanyFilter([],{view,mode:'demo'},operations);
+  assert(noSync.includes('Não consultado'));
+  assert(!noSync.includes('<strong>3</strong><small>pedidos</small>'));
+ }
+});
+test('Comparativo mantém referência própria do período A',()=>{
+ const global={pedidos:[{empresa:'IDEALLOG'}],viagens:[]};
+ const comparison={source:'DSS',current:{pedidos:[{empresa:'CRC COSTA'},{empresa:'CRC COSTA'}],viagens:[]}};
+ const html=renderCompanyFilter([],{view:'comparativos',mode:'demo',comparison},global);
+ assert(html.includes('<strong>2</strong><small>pedidos</small>'));
+ const noSync=renderCompanyFilter([],{view:'comparativos',mode:'live'},global);
+ assert(noSync.includes('Não consultado'));
 });
