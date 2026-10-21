@@ -8,8 +8,7 @@ const num=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR').format(v):'—';
 const brl=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v):'—';
 const date=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')?s.slice(8)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'—';
 const card=(name,value,info)=>'<article class="kpi"><div class="kpi-label">'+esc(name)+'</div><div class="kpi-value">'+esc(value)+'</div><div class="kpi-sub">'+esc(info)+'</div></article>';
-export function renderFinanceDashboard(data,state){
- const insights=buildInsights(data,{year:Number((state.from||'').sliceexport function renderFinanceDashboard(_orders,state){
+export function renderFinanceDashboard(_orders,state){
  // IMPORTANTE: nenhum valor ou quantidade deste resumo vem de pedidos de frete.
  // O campo valorTotal não pode ser somado linha a linha (repetido nas parcelas).
  const loaded=state.recvSource==='live'&&!state.recvLoading;
@@ -50,7 +49,9 @@ export function renderFinanceDashboard(data,state){
  (SHOW_FINANCE_ONLY_TABS?'<button class="btn" data-nav="relatorios">RELATÓRIOS →</button>':'')+
  '</div></section>';
 }
-dentificados',value:t.ctes},
+const comparisons=d=>{const t=buildInsights(d).totals;return [
+ {label:'Pedidos de frete',value:t.orders},
+ {label:'CT-e identificados',value:t.ctes},
  {label:'Fretes informados',value:t.freight.known?t.freight.sum:null,money:true},
  {label:'Liberados para faturamento',value:t.readyToInvoice},
  {label:'Liberados sem nº de fatura',value:t.withoutInvoice},
