@@ -86,17 +86,28 @@ export function renderCompanyFilter(rows,state,operations={}){
  const distribution=companyDistribution(rows),orders=operationalCompanyMetrics(operations);
  const operationalView=['faturamento','ctes','clientes','conciliacao','comparativos','analises'].includes(state.view);
  const operationalCounts=new Map(orders.map(x=>[x.name,x.pedidos]));
- const countSuffix=operationalView?'pedido(s)':'parcela(s)';
- return '<section class="recv-enterprises"><div class="recv-enterprise-toolbar">'+
- '<div><strong>EMPRESAS DO GRUPO</strong><p>Escolha uma empresa para ver seus pedidos e valores. Notas fiscais sem empresa só podem ser relacionadas por referência.</p></div>'+
- '<label for="recvCompany">Empresa<select class="control" id="recvCompany">'+
+ const unit=operationalView?'pedido':'parcela';
+ const quantity=(name,count)=>operationalView?(operationalCounts.get(name)||0):count;
+ const cards=[{name:COMPANY_ALL,count:operationalView?orders.reduce((sum,x)=>sum+x.pedidos,0):rows.length},...distribution];
+ const card=({name,count})=>{
+  const current=selected===name,amount=name===COMPANY_ALL?count:quantity(name,count);
+  return '<button type="button" class="recv-company-tile'+(current?' active':'')+
+   '" data-company-select="'+h(name)+'" aria-pressed="'+(current?'true':'false')+
+   '" aria-label="Filtrar por '+h(name===COMPANY_ALL?'todas as empresas':companyTitle(name))+': '+num(amount)+' '+unit+(amount===1?'':'s')+'">'+
+   '<span class="recv-company-name">'+h(name===COMPANY_ALL?'Todas as empresas':companyTitle(name))+'</span>'+
+   '<span class="recv-company-total"><strong>'+num(amount)+'</strong><small>'+unit+(amount===1?'':'s')+'</small></span>'+
+   '</button>';
+ };
+ return '<section class="recv-enterprises" aria-label="Escolher empresa">'+
+ '<div class="recv-enterprise-toolbar">'+
+ '<div class="recv-enterprise-heading"><span class="recv-enterprise-eyebrow">VISUALIZAÇÃO POR EMPRESA</span>'+
+ '<h3>Empresas do grupo</h3><p>Selecione uma empresa para consultar os seus registros. Os valores exibidos seguem os filtros da página.</p></div>'+
+ '<label class="recv-company-select-label" for="recvCompany">Filtrar por empresa<select class="control" id="recvCompany">'+
  '<option value="all" '+(selected===COMPANY_ALL?'selected':'')+'>Todas as empresas</option>'+
  COSTALOG_COMPANIES.map(k=>'<option value="'+h(k)+'" '+(selected===k?'selected':'')+'>'+h(k)+'</option>').join('')+
  '<option value="unidentified" '+(selected===COMPANY_UNIDENTIFIED?'selected':'')+'>Outras / não identificadas</option></select></label></div>'+
- '<div class="recv-company-summaries">'+distribution.map(({name,count})=>
- '<button type="button" class="recv-company-tile '+(selected===name?'active':'')+'" data-company-select="'+h(name)+'">'+
- '<span>'+h(companyTitle(name))+'</span><strong>'+num(operationalView?(operationalCounts.get(name)||0):count)+'</strong><small>'+countSuffix+'</small></button>').join('')+'</div>'+
- (distribution.at(-1)?.count?'<p class="ins-hint">Registros sem empresa identificada permanecem separados para evitar mistura de informações.</p>':'')+
+ '<div class="recv-company-summaries">'+cards.map(card).join('')+'</div>'+
+ (distribution.at(-1)?.count?'<p class="recv-company-note">Registros sem empresa identificada ficam separados para não misturar informações.</p>':'')+
  '</section>';
 }
 function companyBreakdown(rows){

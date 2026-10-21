@@ -64,3 +64,22 @@ test('O servidor entrega o módulo novo no Render e o filtro usa somente o campo
  const source=readFileSync('src/companies.mjs','utf8');
  assert(!source.includes('row?.parceiro'));
 });
+
+test('Cartões de empresas: tema escuro, seleção e responsividade',()=>{
+ const markup=renderCompanyFilter(data,{view:'receber',recvCompany:'CRC COSTA'});
+ assert(markup.includes('aria-label="Escolher empresa"'));
+ assert(markup.includes('data-company-select="all"'));
+ assert(markup.includes('aria-pressed="true"'));
+ assert(markup.includes('recv-company-name'));
+ assert(markup.includes('recv-company-total'));
+ assert(markup.includes('>CRC COSTA</span>'));
+ assert(markup.includes('<strong>1</strong><small>parcela</small>'));
+ assert(!markup.includes('1parcela(s)'));
+ const css=readFileSync('styles.css','utf8');
+ for(const classname of ['recv-enterprises','recv-company-summaries','recv-company-tile',
+  'recv-company-name','recv-company-total','recv-enterprise-toolbar','recv-company-select-label'])
+  assert(css.includes('.'+classname),'Sem estilo: '+classname);
+ assert(css.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
+ assert(css.includes('@media(max-width:420px)'));
+ assert(css.includes('prefers-reduced-motion'));
+});
