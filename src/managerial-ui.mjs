@@ -2,6 +2,7 @@
  * Nenhuma métrica aqui é lucro, recebimento, inadimplência ou status fiscal validado.
  */
 import {receivablesSummary} from './receivables.mjs';
+import {receivablesByCompany} from './companies.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const money=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:2}).format(v):'—';
 const n=v=>new Intl.NumberFormat('pt-BR').format(v);
@@ -56,7 +57,7 @@ function trend(records){
 }
 export function renderManagerialDashboard(documents,orders=[],state={}){
  const s=managerialMetrics(documents,orders),live=state.docsSource==='live';
- const receivable=state.recvSource==='live'?receivablesSummary(state.recvRows||[]):null;
+ const receivable=state.recvSource==='live'?receivablesSummary(receivablesByCompany(state.recvRows||[],state.recvCompany||'all')):null;
  const source=live?'Dados consultados no DSS':'Demonstração: valores e parceiros fictícios';
  const missing=[
   ['Sem número NFS-e',s.semNfse,'Verificar preenchimento, não concluir ausência de emissão'],
@@ -65,7 +66,7 @@ export function renderManagerialDashboard(documents,orders=[],state={}){
   ['ISS não informado',s.count-s.knownIss,'Conferir o campo total_iss na origem']
  ];
  return '<section class="ins-module mgmt-dashboard"><div class="section-title"><h2>VISÃO GERENCIAL DSS</h2><span>'+esc(source)+'</span></div>'+
- '<p class="mgmt-intro">Leitura operacional e fiscal dos documentos eletrônicos, agrupados por tipo de operação, parceiro, situação, modelo, ponto de apoio e mês. Os gráficos usam somente os campos realmente fornecidos pela API.</p>'+
+ '<p class="mgmt-intro">Leitura operacional e fiscal dos documentos eletrônicos, agrupados por tipo de operação, parceiro, situação, modelo, ponto de apoio e mês. Os gráficos usam somente os campos realmente fornecidos pela API. <strong>A API de documentos eletrônicos não contém campo empresa:</strong> ela não permite separar NFS-e por estas quatro empresas com segurança; o filtro por empresa aplica-se apenas aos cartões de Contas a Receber.</p>'+
  '<div class="kpis">'+kpi('DOCUMENTOS',n(s.count),'Registros retornados')+
  kpi('VALOR FINAL INFORMADO',s.knownFinal?money(s.valorFinal):'—',n(s.knownFinal)+' documentos com valor')+
  kpi('ISS INFORMADO',s.knownIss?money(s.iss):'—',n(s.knownIss)+' documentos com ISS')+

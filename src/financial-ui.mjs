@@ -1,6 +1,7 @@
 /** COSTALOG Financeiro — apresenta somente indicadores e registros de faturamento. */
 import {buildInsights} from './operational.mjs';
 import {receivablesSummary} from './receivables.mjs';
+import {receivablesByCompany} from './companies.mjs';
 import {renderAdvanced} from './advanced-ui.mjs';
 import {SHOW_FINANCE_ONLY_TABS} from './access-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,7 +13,7 @@ export function renderFinanceDashboard(data,state){
  const insights=buildInsights(data,{year:Number((state.from||'').slice(0,4)||new Date().getFullYear())});
  const t=insights.totals;
  const withInvoice=(data.pedidos||[]).filter(p=>String(p.numeroFatura||'').trim()).length;
- const financial=state.recvSource==='live'?receivablesSummary(state.recvRows||[]):null;
+ const financial=state.recvSource==='live'?receivablesSummary(receivablesByCompany(state.recvRows||[],state.recvCompany||'all')):null;
  return '<section class="ins-module"><div class="section-title"><h2>RESUMO DE FATURAMENTO</h2><span>Fonte: '+(state.mode==='live'?'DSS':'dados de demonstração')+'</span></div>'+
  '<div class="kpis">'+
  card('FRETES INFORMADOS',brl(t.freight.known?t.freight.sum:null),'Valor dos pedidos; não é pagamento recebido')+
@@ -21,7 +22,7 @@ export function renderFinanceDashboard(data,state){
  card('LIBERADOS SEM FATURA',num(t.withoutInvoice),'Requer conferência do número da fatura')+
  card('COM Nº DE FATURA',num(withInvoice),'Não comprova emissão ou recebimento')+
  card('TICKET MÉDIO',brl(t.freight.known?t.freight.sum/t.freight.known:null),'Somente pedidos com valores preenchidos')+
- (financial?card('SALDO RESIDUAL A RECEBER',financial.residualKnown?brl(financial.residual):'—','Parcelas DSS (referência: '+(state.recvRef==='E'?'emissão':state.recvRef==='V'?'vencimento':'pagamento')+')'):'')+
+ (financial?card('SALDO RESIDUAL A RECEBER',financial.residualKnown?brl(financial.residual):'—','Empresa: '+(state.recvCompany==='all'?'Todas':state.recvCompany)+' · Parcelas DSS (referência: '+(state.recvRef==='E'?'emissão':state.recvRef==='V'?'vencimento':'pagamento')+')'):'')+
  (financial?card('PARCELAS COM VENCIMENTO PASSADO',num(financial.lateCount),'Com residual positivo e vencimento anterior a hoje'):'')+
  '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="gerencial">VISÃO GERENCIAL E GRÁFICOS →</button><button class="btn" data-nav="receber">CONTAS A RECEBER →</button><button class="btn" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button>'+ (SHOW_FINANCE_ONLY_TABS ? '<button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button>' : '')+'</div></section>'+
  (SHOW_FINANCE_ONLY_TABS ? renderAdvanced('analises',data,{...state,search:''}) : '');

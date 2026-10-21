@@ -1,5 +1,6 @@
 /** Parcelas a receber: tabela paginada, 34 campos em detalhes e gráficos leves, sem dependências. */
 import {RECEIVABLE_FIELDS,RECEIVABLE_NUMBERS,RECEIVABLE_DATES,receivablesSummary} from './receivables.mjs';
+import {COSTALOG_COMPANIES,COMPANY_UNIDENTIFIED,COMPANY_ALL,receivablesByCompany,companyDistribution} from './companies.mjs';
 const h=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const brl=x=>Number.isFinite(x)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(x):'—';
 const num=x=>new Intl.NumberFormat('pt-BR').format(x);
@@ -15,6 +16,7 @@ export function receivablesPriority(row,today=new Date().toISOString().slice(0,1
  return row.dataVencimento<today?0:1;
 }
 export function filteredReceivables(rows,state){
+ rows=receivablesByCompany(rows,state.recvCompany||COMPANY_ALL);
  const key=state.recvSortKey||'prioridade',dir=state.recvSortDir==='desc'?-1:1,
   q=String(state.recvSearch||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim(),
   status=state.recvStatus||'',quick=state.recvQuick||'todos';
@@ -78,6 +80,35 @@ function agingTable(rows){
  '<div class="ins-responsive-table"><table><thead><tr><th>Faixa</th><th>Parcelas</th><th>Saldo residual informado</th><th>Valor nominal das parcelas</th></tr></thead>'+
  '<tbody>'+rows.map(g=>'<tr><td>'+h(g.name)+'</td><td>'+num(g.count)+'</td><td>'+h(g.known?brl(g.value):'—')+'</td><td>'+h(g.faceKnown?brl(g.face):'—')+'</td></tr>').join('')+'</tbody></table></div></section>';
 }
+const companyTitle=k=>k===COMPANY_UNIDENTIFIED?'Outras / não identificadas':k;
+export function renderCompanyFilter(rows,state){
+ const selected=state.recvCompany||COMPANY_ALL;
+ const distribution=companyDistribution(rows);
+ return '<section class="recv-enterprises"><div class="recv-enterprise-toolbar">'+
+ '<div><strong>EMPRESAS DO GRUPO</strong><p>Filtre recebíveis, indicadores e gráficos pela empresa proprietária da parcela (campo empresa da API).</p></div>'+
+ '<label for="recvCompany">Empresa<select class="control" id="recvCompany">'+
+ '<option value="all" '+(selected===COMPANY_ALL?'selected':'')+'>Todas as empresas</option>'+
+ COSTALOG_COMPANIES.map(k=>'<option value="'+h(k)+'" '+(selected===k?'selected':'')+'>'+h(k)+'</option>').join('')+
+ '<option value="unidentified" '+(selected===COMPANY_UNIDENTIFIED?'selected':'')+'>Outras / não identificadas</option></select></label></div>'+
+ '<div class="recv-company-summaries">'+distribution.map(({name,count})=>
+ '<button type="button" class="recv-company-tile '+(selected===name?'active':'')+'" data-company-select="'+h(name)+'">'+
+ '<span>'+h(companyTitle(name))+'</span><strong>'+num(count)+'</strong><small>parcela(s)</small></button>').join('')+'</div>'+
+ (distribution.at(-1)?.count?'<p class="ins-hint">Há '+num(distribution.at(-1).count)+' registro(s) cujo campo empresa não corresponde exatamente a uma das quatro empresas. Não foram atribuídos automaticamente para evitar valores incorretos.</p>':'')+
+ '</section>';
+}
+function companyBreakdown(rows){
+ const groups=companyDistribution(rows);
+ return '<section class="mgmt-alerts"><h3>RESUMO FINANCEIRO POR EMPRESA</h3>'+
+ '<p>Grupos independentes definidos pelo campo empresa. Pagamentos, valores nominais e saldos são indicadores separados.</p>'+
+ '<div class="recv-company-breakdown">'+groups.map(({name,count})=>{
+  const x=receivablesSummary(receivablesByCompany(rows,name));
+  return '<article class="recv-company-group"><strong>'+h(companyTitle(name))+'</strong>'+
+   '<div><span>Parcelas</span><b>'+num(count)+'</b></div>'+
+   '<div><span>Pagamentos</span><b>'+h(x.paidKnown?brl(x.paid):'—')+'</b></div>'+
+   '<div><span>Saldo residual</span><b>'+h(x.residualKnown?brl(x.residual):'—')+'</b></div>'+
+   '<div><span>Valor nominal</span><b>'+h(x.faceKnown?brl(x.face):'—')+'</b></div></article>';
+ }).join('')+'</div></section>';
+}
 const card=(label,value,desc)=>'<article class="kpi"><div class="kpi-label">'+h(label)+'</div><div class="kpi-value">'+h(value)+'</div><div class="kpi-sub">'+h(desc)+'</div></article>';
 export function renderReceivables(rows,state){
  const r=filteredReceivables(rows,state),summary=receivablesSummary(r);
@@ -108,6 +139,7 @@ export function renderReceivables(rows,state){
  '<p class="ins-hint">Para períodos longos, o portal consulta o DSS mês a mês, sem mostrar totais incompletos. Em caso de tempo limite, o mês afetado será dividido em quinzenas automaticamente.</p>'+
  '<p class="ins-hint">A consulta considera '+h(GROUPS[ref][0].toLowerCase())+' no período selecionado. Selecione o referencial E / V / P para consultar emissão, vencimento ou pagamento. A opção P é exclusiva para parcelas pagas, conforme a documentação DSS.</p>'+
  warnings+
+ (state.recvCompany==='all'||!state.recvCompany?companyBreakdown(rows):'')+
  '<div class="recv-toolbar"><label>Referência do período<select class="control" id="recvRef"><option value="E" '+(ref==='E'?'selected':'')+'>Emissão (E)</option><option value="V" '+(ref==='V'?'selected':'')+'>Vencimento (V)</option><option value="P" '+(ref==='P'?'selected':'')+'>Pagamento (P)</option></select></label>'+
  '<button class="btn btn-red" type="button" data-action="recv-consult" '+(state.recvLoading?'disabled':'')+'>'+(state.recvLoading?h(state.recvProgress||'CONSULTANDO DSS...'):'CONSULTAR CONTAS A RECEBER NO DSS')+'</button>'+
  '<label>Vencimentos e prioridades<select class="control" id="recvQuick">'+
@@ -132,6 +164,10 @@ export function renderReceivables(rows,state){
  (summary.missingTypes?card('TIPO DE FATURA AUSENTE',num(summary.missingTypes),'Informação não preenchida na API'):'')+
  '</div>'+
  '<div class="mgmt-chart-grid">'+
+ (state.recvCompany==='all'||!state.recvCompany?barChart('Saldo residual por empresa (DSS)',companyDistribution(rows).map(({name,count})=>{
+  const x=receivablesSummary(receivablesByCompany(rows,name));
+  return {name:companyTitle(name),count,value:x.residual,known:x.residualKnown,face:x.face,faceKnown:x.faceKnown,paid:x.paid,paidKnown:x.paidKnown};
+ })): '')+
  (financialMode==='residual'?barChart('Saldo RESIDUAL informado por parceiro',summary.parceiros):
   financialMode==='nominal'?barChart('Valor NOMINAL por parceiro (não é saldo)',summary.parceiros,'money','face'):
   barChart('Quantidade de parcelas por parceiro (valores não disponíveis)',summary.parceiros,'count','count'))+

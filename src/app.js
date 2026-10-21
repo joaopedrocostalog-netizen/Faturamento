@@ -12,7 +12,7 @@ import {renderFinanceDashboard,renderFinanceComparison,renderComparisonSyncDialo
 import {renderManagerialDashboard} from './managerial-ui.mjs';
 import {normalizeReceivables} from './receivables.mjs';
 import {loadReceivablesByPeriod} from './receivables-batch.mjs';
-import {renderReceivables,renderReceivablesTokenDialog} from './receivables-ui.mjs';
+import {renderReceivables,renderReceivablesTokenDialog,renderCompanyFilter} from './receivables-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
 import {fetchAuthorizedDocuments,fetchAuthorizedOverview,fetchAuthorizedReceivables} from './dss-sync.mjs';
@@ -144,7 +144,7 @@ const state = {
  {empresa:'EXEMPLO',dataEmissao:'2026-10-02',parceiro:'PARCEIRO FICTÍCIO B',parcela:'1/1',fatura:'DEMO-002',
  situacaoFatura:'PAGA',dataVencimento:'2026-10-12',dataPagamento:'2026-10-10',valor:850,valorPagamento:850,valorResidual:0,tipoFatura:'Armazenagem'}
  ]}),recvSource:'demo',recvError:'',recvLoading:false,recvDialogOpen:false,recvRef:'E',
- recvStatus:'',recvQuick:'todos',recvSortKey:'prioridade',recvSortDir:'asc',recvPage:1,recvSearch:'',recvProgress:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
+ recvCompany:'all',recvStatus:'',recvQuick:'todos',recvSortKey:'prioridade',recvSortDir:'asc',recvPage:1,recvSearch:'',recvProgress:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
@@ -258,6 +258,7 @@ function render(){
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
  '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:docsLive?'live':state.mode,financeiro:state.permissions.financeiro})+
  '<div class="v-tools-row">'+dateFilters+tools+'</div>'+renderSearchBar()+globalSearch+detailedFilters+message+
+ (['painel','gerencial','receber'].includes(state.view)?renderCompanyFilter(state.recvRows,state):'')+
  (state.syncError?'<div class="info-strip error"><strong>Sincronização:</strong> '+esc(state.syncError)+'</div>':'')+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
@@ -950,6 +951,11 @@ root.addEventListener('click',e=>{
   }
   return;
  }
+ const companyButton=e.target.closest('[data-company-select]');
+ if(companyButton){
+  state.recvCompany=companyButton.dataset.companySelect;
+  state.recvPage=1;render();return;
+ }
  const nav=e.target.closest('[data-nav]');if(nav){if(!permittedView(state.role,nav.dataset.nav))return;state.view=nav.dataset.nav;state.clientSelected='';state.routeSelected='';state.driverSelected='';state.globalQuery='';state.search='';state.filter='todos';state.sortKey='';state.page=1;state.menu=false;state.selected=null;render();if(state.view==='administracao'&&state.permissions.admin)loadAdminUsers();return;}
  const sorter=e.target.closest('[data-sort-metric]');
  if(sorter){
@@ -1094,6 +1100,7 @@ root.addEventListener('change',e=>{
   state.recvQuick='todos';state.recvSortKey=state.recvRef==='P'?'dataPagamento':'prioridade';state.recvSortDir=state.recvRef==='P'?'desc':'asc';
   state.recvStatus='';state.recvError='';state.recvPage=1;render();return;
  }
+ if(e.target.id==='recvCompany'){state.recvCompany=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='recvStatus'){state.recvStatus=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='recvQuick'){state.recvQuick=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='recvSortKey'){state.recvSortKey=e.target.value;state.recvPage=1;render();return;}

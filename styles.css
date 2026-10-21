@@ -521,3 +521,12 @@ body{background:#08090b;color:#f6f7f8}
 .recv-coverage-grid strong{font-size:12px;color:#f6f6f8;overflow-wrap:anywhere}
 .recv-coverage-grid span{font-size:12px;color:#bdc0c9}
 @media(max-width:700px){.recv-coverage-grid{grid-template-columns:1fr}}
+
+.recv-company-breakdown{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-top:15px}
+.recv-company-group{border-radius:9px;padding:12px;background:#25262b;display:grid;gap:8px}
+.recv-company-group>strong{font-size:12px;min-height:28px;overflow-wrap:anywhere}
+.recv-company-group>div{display:flex;gap:8px;justify-content:space-between;align-items:center}
+.recv-company-group>div span{font-size:11px;color:#aeb1bb}
+.recv-company-group>div b{font-size:12px;white-space:nowrap}
+@media(max-width:1040px){.recv-company-breakdown{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:620px){.recv-company-breakdown{grid-template-columns:1fr}}
