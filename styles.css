@@ -639,3 +639,16 @@ body{background:#08090b;color:#f6f7f8}
 .recv-export-actions{display:flex;gap:8px;flex-wrap:wrap}
 .recv-export-actions .btn{min-height:36px}
 @media(max-width:640px){.recv-export-actions{width:100%}.recv-export-actions .btn{flex:1 1 110px}}
+
+/* Comparação auditável: distingue valor das parcelas e total por fatura.
+   Nunca inferir valores financeiros ausentes. */
+.finance-audit{margin:18px 0 8px;padding:17px 19px;border:1px solid #41414b;border-radius:12px;background:#1c1d23}
+.finance-audit summary{font-size:13px;font-weight:800;color:#f4f4f6;cursor:pointer;list-style-position:inside}
+.finance-audit>p{color:#bdc0c9;font-size:12px;line-height:1.6;margin:12px 0}
+.finance-audit-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.finance-audit-grid>div{min-width:0;display:grid;gap:7px;padding:13px 14px;border:1px solid #363842;border-radius:9px;background:#24252b}
+.finance-audit-grid small{font-size:11px;line-height:1.35;color:#bec1ca}
+.finance-audit-grid strong{font-size:19px;color:#fafafa;overflow-wrap:anywhere}
+.finance-audit-grid span{color:#a9acb7;font-size:11px;line-height:1.4}
+.finance-audit .finance-audit-warning{color:#f6cca6}
+@media(max-width:900px){.finance-audit-grid{grid-template-columns:1fr}}

@@ -86,3 +86,44 @@ test('A lista de arquivos estáticos serve o resumo financeiro no Render e no Gi
  assert(readFileSync('api/server.mjs','utf8').includes("'invoice-summary.mjs'"));
  assert(readFileSync('.github/workflows/pages.yml','utf8').includes('src/invoice-summary.mjs'));
 });
+
+test('Confere valorTotal uma vez por fatura sem duplicar parcelas',()=>{
+ const data=normalizeReceivables({status:200,registros:[
+  {empresa:'CRC COSTA',fatura:'ABC',parcela:'1/2',valor:80,valorTotal:200,valorResidual:50},
+  {empresa:'CRC COSTA',fatura:'ABC',parcela:'2/2',valor:120,valorTotal:200,valorResidual:null},
+  {empresa:'IDEALLOG',fatura:'ABC',parcela:'1/1',valor:50,valorTotal:55,valorResidual:55}
+ ]});
+ const s=invoiceSummary(data);
+ assert.equal(s.face,250);
+ assert.equal(s.totalAudit.reportedTotalRows,455,'Soma ingênua duplicaria a fatura ABC da CRC');
+ assert.equal(s.totalAudit.reportedTotalByInvoice,255,'Somar 200 CRC uma vez e 55 IDEALLOG');
+ assert.equal(s.totalAudit.reportedTotalInvoicesKnown,2);
+ assert.equal(s.totalAudit.reportedTotalInvoicesNotCounted,0);
+ assert.equal(s.residualKnown,2);
+ assert.equal(s.residual,105);
+ const html=renderFinanceDashboard([],{
+  ...state,recvRows:data,recvCompany:'all',recvSource:'live'
+ });
+ assert(html.includes('Conferência dos totais com o relatório DSS'));
+ assert(html.includes('R$ 255,00'));
+ assert(html.includes('2 de 3 parcelas com saldo informado'));
+ assert(html.includes('Exportar dados (CSV)'));
+});
+test('Inconsistência em valorTotal deve ser sinalizada e não contada arbitrariamente',()=>{
+ const data=normalizeReceivables({status:200,registros:[
+  {empresa:'CRC COSTA',fatura:'AAA',parcela:'1/2',valor:10,valorTotal:30},
+  {empresa:'CRC COSTA',fatura:'AAA',parcela:'2/2',valor:20,valorTotal:35},
+  {empresa:'CRC COSTA',fatura:'BBB',parcela:'1/2',valor:40,valorTotal:80},
+  {empresa:'CRC COSTA',fatura:'BBB',parcela:'2/2',valor:40,valorTotal:null},
+  {empresa:'CRC COSTA',fatura:'CCC',parcela:'1/1',valor:60,valorTotal:null},
+  {empresa:'CRC COSTA',fatura:'',parcela:'1/1',valor:5,valorTotal:5}
+ ]});
+ const m=invoiceSummary(data);
+ assert.equal(m.totalAudit.reportedTotalInvoicesKnown,0);
+ assert.equal(m.totalAudit.reportedTotalInvoicesConflicting,1);
+ assert.equal(m.totalAudit.reportedTotalInvoicesPartiallyFilled,1);
+ assert.equal(m.totalAudit.reportedTotalInvoicesMissing,1);
+ assert.equal(m.totalAudit.reportedTotalWithoutInvoice,1);
+ assert.equal(m.totalAudit.reportedTotalInvoicesNotCounted,3);
+ assert.equal(m.invoicesWithoutNumber,1);
+});

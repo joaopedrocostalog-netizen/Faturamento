@@ -43,6 +43,25 @@ export function renderFinanceDashboard(_orders,state){
  (financial&&((financial.faceKnown<financial.installments)||(financial.paidKnown<financial.installments)||(financial.residualKnown<financial.installments))?
   '<p class="finance-source-warning">Algumas parcelas não trazem todos os valores. As somas consideram somente campos preenchidos: '+num(financial.faceKnown)+' valores de parcelas, '+
   num(financial.paidKnown)+' pagamentos e '+num(financial.residualKnown)+' saldos residuais. Dados ausentes não foram estimados.</p>':'')+
+ (financial?'<details class="finance-audit" open><summary>Conferência dos totais com o relatório DSS</summary>'+
+ '<p>O total principal soma o valor das parcelas. O DSS também fornece um campo de total, que pode aparecer repetido quando uma fatura tem várias parcelas. Abaixo ele é contado apenas uma vez por fatura quando seus registros são consistentes. <strong>Este valor é comparativo, não um total fiscal validado.</strong></p>'+
+ '<div class="finance-audit-grid">'+
+ '<div><small>Total dos valores das parcelas</small><strong>'+brl(financial.face)+'</strong><span>'+num(financial.faceKnown)+' de '+num(financial.installments)+' parcelas com valor</span></div>'+
+ '<div><small>Total informado por fatura — conferência'+(financial.totalAudit.reportedTotalInvoicesNotCounted||financial.invoicesWithoutNumber?' parcial':'')+'</small>'+
+ '<strong>'+(financial.totalAudit.reportedTotalInvoicesKnown?brl(financial.totalAudit.reportedTotalByInvoice):'—')+'</strong>'+
+ '<span>'+num(financial.totalAudit.reportedTotalInvoicesKnown)+' de '+num(financial.invoices)+' faturas com total consistente</span></div>'+
+ '<div><small>Saldo residual disponível</small><strong>'+(financial.residualKnown?brl(financial.residual):'—')+'</strong>'+
+ '<span>'+num(financial.residualKnown)+' de '+num(financial.installments)+' parcelas com saldo informado</span></div></div>'+
+ (financial.totalAudit.reportedTotalInvoicesConflicting?'<p class="finance-audit-warning">'+num(financial.totalAudit.reportedTotalInvoicesConflicting)+' fatura(s) com valores totais diferentes entre parcelas: verificar no DSS.</p>':'')+
+ (financial.totalAudit.reportedTotalInvoicesPartiallyFilled||financial.totalAudit.reportedTotalInvoicesMissing||financial.invoicesWithoutNumber?
+  '<p class="finance-audit-warning">Conferência parcial: '+num(financial.totalAudit.reportedTotalInvoicesMissing)+' faturas sem total, '+
+  num(financial.totalAudit.reportedTotalInvoicesPartiallyFilled)+' com total em apenas parte das parcelas e '+
+  num(financial.invoicesWithoutNumber)+' parcelas sem número de fatura. Nenhum valor ausente foi estimado.</p>':'')+
+ (financial.residualKnown<financial.installments?'<p class="finance-audit-warning">A API não informou saldo residual em '+
+  num(financial.installments-financial.residualKnown)+' parcelas. O valor exibido é somente a soma dos saldos recebidos — pode diferir do relatório mensal do DSS.</p>':'')+
+ '<p>Para comparar corretamente, confirme o mesmo período, empresa e referência no DSS. Um relatório identificado como o mês inteiro pode incluir datas posteriores ao fim selecionado neste painel.</p>'+
+ '<div class="v-bottom-actions"><button type="button" class="btn btn-sm" data-action="recv-report-xlsx">Exportar todas as parcelas (Excel)</button>'+
+ '<button type="button" class="btn btn-sm" data-action="recv-report-csv">Exportar dados (CSV)</button></div></details>':'')+
  '<div class="v-bottom-actions"><button class="btn btn-red" data-nav="receber">VER FATURAS E PARCELAS →</button>'+
  '<button class="btn" data-nav="conciliacao">CONFERIR FATURAS E NOTAS →</button>'+
  '<button class="btn" data-nav="ctes">VER PEDIDOS DE FRETE (OPERACIONAL) →</button>'+
