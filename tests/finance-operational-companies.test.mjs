@@ -79,7 +79,9 @@ test('Comparativo mantém datas independentes e aplica a MESMA empresa em ambos 
  assert.equal(state.comparison.current.pedidos.length,4,'Preservar dados originais do comparativo');
  const dash=renderFinanceDashboard(overviewByCompany(base,'CRC COSTA'),
   {mode:'live',from:'2026-10-01',to:'2026-10-31',recvSource:'pending',recvCompany:'CRC COSTA',recvRows:[]});
- assert(dash.includes('CRC COSTA'));
+ assert(dash.includes('Aguardando dados financeiros'));
+ assert(!dash.includes('Fretes informados'));
+ assert(!dash.includes('1.250,00'));
  assert(!dash.includes('COMEX COSTA LOG'));
 });
 test('Separação funciona no Faturamento e CT-e e não cria API de parceiros/motoristas desnecessária',()=>{

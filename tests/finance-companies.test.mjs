@@ -95,13 +95,14 @@ test('Cartões diferenciam registros não consultados de resultado real zero',()
  const realZero=renderCompanyFilter([],{view:'receber',recvSource:'live'});
  assert(realZero.includes('<strong>0</strong><small>parcelas</small>'));
 });
-test('Painel e gerência exibem pedidos, sem usar parcelas não consultadas',()=>{
+test('Painel e gerência exibem faturas distintas, sem usar pedidos de frete',()=>{
  const operations={pedidos:[{empresa:'CRC COSTA'},{empresa:'CRC COSTA'},{empresa:'IDEALLOG'}],viagens:[]};
  for(const view of ['painel','gerencial']){
-  const page=renderCompanyFilter([],{view,mode:'live',recvSource:'pending'},operations);
-  assert(page.includes('<strong>3</strong><small>pedidos</small>'));
-  assert(page.includes('<strong>2</strong><small>pedidos</small>'));
-  const noSync=renderCompanyFilter([],{view,mode:'demo'},operations);
+  const page=renderCompanyFilter(data,{view,mode:'live',recvSource:'live'},operations);
+  assert(page.includes('<strong>6</strong><small>faturas</small>'));
+  assert(page.includes('<strong>1</strong><small>fatura</small>'));
+  assert(!page.includes('<strong>3</strong><small>pedidos</small>'));
+  const noSync=renderCompanyFilter([],{view,mode:'live',recvSource:'pending'},operations);
   assert(noSync.includes('Não consultado'));
   assert(!noSync.includes('<strong>3</strong><small>pedidos</small>'));
  }

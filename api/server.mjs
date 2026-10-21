@@ -258,7 +258,7 @@ const staticFiles=new Map([
  ['/index.html','index.html'],
  ['/styles.css','styles.css'],
  ['/logo-costalog-sem-fundo-1024x876.png','logo-costalog-sem-fundo-1024x876.png'],
- ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs','dss-sync.mjs','managerial-ui.mjs','receivables.mjs','companies.mjs','company-operations-ui.mjs','reconciliation.mjs','reconciliation-ui.mjs','receivables-ui.mjs','receivables-batch.mjs'].map(name=>['/src/'+name,'src/'+name])
+ ...['app.js','dss-mapping.mjs','operational.mjs','reporting.mjs','advanced-ui.mjs','access-ui.mjs','admin-users.mjs','site-config.mjs','visual-dashboard.mjs','intelligence.mjs','intelligence-ui.mjs','financial-ui.mjs','e-documents.mjs','e-documents-ui.mjs','dss-sync.mjs','managerial-ui.mjs','receivables.mjs','companies.mjs','invoice-summary.mjs','company-operations-ui.mjs','reconciliation.mjs','reconciliation-ui.mjs','receivables-ui.mjs','receivables-batch.mjs'].map(name=>['/src/'+name,'src/'+name])
 ]);
 async function serveLocalFrontend(req,res,url){
  if(req.method!=='GET'&&req.method!=='HEAD')return false;

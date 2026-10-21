@@ -1,9 +1,7 @@
 /** COSTALOG Financeiro — apresenta somente indicadores e registros de faturamento. */
 import {buildInsights} from './operational.mjs';
-import {receivablesSummary} from './receivables.mjs';
+import {invoiceSummary} from './invoice-summary.mjs';
 import {receivablesByCompany,overviewByCompany} from './companies.mjs';
-import {renderOperationalCompanies} from './company-operations-ui.mjs';
-import {renderAdvanced} from './advanced-ui.mjs';
 import {SHOW_FINANCE_ONLY_TABS} from './access-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR').format(v):'—';
@@ -11,26 +9,48 @@ const brl=v=>Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'currency',
 const date=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')?s.slice(8)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'—';
 const card=(name,value,info)=>'<article class="kpi"><div class="kpi-label">'+esc(name)+'</div><div class="kpi-value">'+esc(value)+'</div><div class="kpi-sub">'+esc(info)+'</div></article>';
 export function renderFinanceDashboard(data,state){
- const insights=buildInsights(data,{year:Number((state.from||'').slice(0,4)||new Date().getFullYear())});
- const t=insights.totals;
- const withInvoice=(data.pedidos||[]).filter(p=>String(p.numeroFatura||'').trim()).length;
- const financial=state.recvSource==='live'?receivablesSummary(receivablesByCompany(state.recvRows||[],state.recvCompany||'all')):null;
- return '<section class="ins-module"><div class="section-title"><h2>RESUMO DE FATURAMENTO</h2><span>Fonte: '+(state.mode==='live'?'DSS':'dados de demonstração')+'</span></div>'+
+ const insights=buildInsights(data,{year:Number((state.from||'').sliceexport function renderFinanceDashboard(_orders,state){
+ // IMPORTANTE: nenhum valor ou quantidade deste resumo vem de pedidos de frete.
+ // O campo valorTotal não pode ser somado linha a linha (repetido nas parcelas).
+ const loaded=state.recvSource==='live'&&!state.recvLoading;
+ const financial=loaded?invoiceSummary(receivablesByCompany(state.recvRows||[],state.recvCompany||'all')):null;
+ const selected=state.recvCompany&&state.recvCompany!=='all'?state.recvCompany:'Todas as empresas';
+ const reference=state.recvRef==='V'?'data de vencimento':state.recvRef==='P'?'data de pagamento (somente pagas)':'data de emissão';
+ const numberOrDash=value=>financial?num(value):'—';
+ const moneyOrDash=(amount,known)=>financial&&known?brl(amount):'—';
+ const unavailable=state.recvLoading?'Consultando faturas...':
+  state.recvSource==='unavailable'?'Não foi possível consultar Contas a Receber. Confira o erro na aba financeira.':
+  'As faturas ainda não foram consultadas neste período. Sincronize o DSS ou consulte Contas a Receber.';
+ return '<section class="ins-module finance-invoices"><div class="section-title"><h2>RESUMO DE FATURAS</h2>'+
+ '<span>'+(loaded?'Fonte: Contas a Receber • DSS':'Aguardando dados financeiros')+'</span></div>'+
+ '<p class="ins-hint">Resumo baseado exclusivamente nas faturas e parcelas do módulo Contas a Receber. Não inclui valores de pedidos de frete.</p>'+
+ (!loaded?'<div class="info-strip '+(state.recvSource==='unavailable'?'error':'')+'">'+esc(unavailable)+
+ ' <button type="button" class="btn btn-sm" data-nav="receber">Consultar faturas</button></div>':'')+
+ (loaded?'<div class="finance-source-note"><strong>Consulta:</strong> '+esc(selected)+
+ ' · '+esc(reference)+' · '+esc(state.from||'')+' a '+esc(state.to||'')+
+ (state.recvRef==='P'?' · Somente parcelas pagas no período':'')+'</div>':'')+
  '<div class="kpis">'+
- card('FRETES INFORMADOS',brl(t.freight.known?t.freight.sum:null),'Valor dos pedidos; não é pagamento recebido')+
- card('PEDIDOS DE FRETE',num(t.orders),'Registros no intervalo selecionado')+
- card('LIBERADOS PARA FATURAR',num(t.readyToInvoice),'Situação informada pela DSS')+
- card('LIBERADOS SEM FATURA',num(t.withoutInvoice),'Requer conferência do número da fatura')+
- card('COM Nº DE FATURA',num(withInvoice),'Não comprova emissão ou recebimento')+
- card('TICKET MÉDIO',brl(t.freight.known?t.freight.sum/t.freight.known:null),'Somente pedidos com valores preenchidos')+
- (financial?card('SALDO RESIDUAL A RECEBER',financial.residualKnown?brl(financial.residual):'—','Empresa: '+(state.recvCompany==='all'?'Todas':state.recvCompany)+' · Parcelas DSS (referência: '+(state.recvRef==='E'?'emissão':state.recvRef==='V'?'vencimento':'pagamento')+')'):'')+
- (financial?card('PARCELAS COM VENCIMENTO PASSADO',num(financial.lateCount),'Com residual positivo e vencimento anterior a hoje'):'')+
- '</div><div class="v-bottom-actions"><button class="btn btn-red" data-nav="gerencial">VISÃO GERENCIAL E GRÁFICOS →</button><button class="btn" data-nav="receber">CONTAS A RECEBER →</button><button class="btn" data-nav="conciliacao">CONFERIR FATURAS E NOTAS →</button><button class="btn" data-nav="faturamento">CONTROLE DE FATURAMENTO →</button><button class="btn" data-nav="clientes">CLIENTES & FRETES ↗</button>'+ (SHOW_FINANCE_ONLY_TABS ? '<button class="btn" data-nav="relatorios">EXPORTAR RELATÓRIOS ↗</button>' : '')+'</div></section>'+renderOperationalCompanies(data,state)+
- (SHOW_FINANCE_ONLY_TABS ? renderAdvanced('analises',data,{...state,search:''}) : '');
+ card('FATURAS IDENTIFICADAS',numberOrDash(financial?.invoices),'Números de fatura distintos, sem duplicar parcelas')+
+ card('PARCELAS REGISTRADAS',numberOrDash(financial?.installments),'Quantidade de parcelas da consulta financeira')+
+ card('VALOR DAS PARCELAS',moneyOrDash(financial?.face,financial?.faceKnown),'Soma dos valores das parcelas informadas; não é receita recebida')+
+ card('VALOR RECEBIDO INFORMADO',moneyOrDash(financial?.paid,financial?.paidKnown),'Somente pagamentos preenchidos no Contas a Receber')+
+ card('SALDO A RECEBER',moneyOrDash(financial?.residual,financial?.residualKnown),'Saldo residual informado nas parcelas')+
+ card('FATURAS COM SALDO',numberOrDash(financial?.invoicesWithConfirmedBalance),'Com alguma parcela de saldo residual positivo')+
+ card('FATURAS COM VENCIMENTO PASSADO',numberOrDash(financial?.invoicesOverdue),
+  financial&&financial.lateKnown?brl(financial.lateResidual)+' em parcelas vencidas com saldo':'Vencimentos com saldo residual confirmado')+
+ card('FATURAS MARCADAS COMO PAGAS',numberOrDash(financial?.paidInvoices),'Todas as parcelas da fatura marcadas como pagas')+
+ (financial?.invoicesWithoutNumber?card('PARCELAS SEM NÚMERO DE FATURA',num(financial.invoicesWithoutNumber),'Registros sem referência para identificar a fatura'):'')+
+ '</div>'+
+ (financial&&((financial.faceKnown<financial.installments)||(financial.paidKnown<financial.installments)||(financial.residualKnown<financial.installments))?
+  '<p class="finance-source-warning">Algumas parcelas não trazem todos os valores. As somas consideram somente campos preenchidos: '+num(financial.faceKnown)+' valores de parcelas, '+
+  num(financial.paidKnown)+' pagamentos e '+num(financial.residualKnown)+' saldos residuais. Dados ausentes não foram estimados.</p>':'')+
+ '<div class="v-bottom-actions"><button class="btn btn-red" data-nav="receber">VER FATURAS E PARCELAS →</button>'+
+ '<button class="btn" data-nav="conciliacao">CONFERIR FATURAS E NOTAS →</button>'+
+ '<button class="btn" data-nav="ctes">VER PEDIDOS DE FRETE (OPERACIONAL) →</button>'+
+ (SHOW_FINANCE_ONLY_TABS?'<button class="btn" data-nav="relatorios">RELATÓRIOS →</button>':'')+
+ '</div></section>';
 }
-const comparisons=d=>{const t=buildInsights(d).totals;return [
- {label:'Pedidos de frete',value:t.orders},
- {label:'CT-e identificados',value:t.ctes},
+dentificados',value:t.ctes},
  {label:'Fretes informados',value:t.freight.known?t.freight.sum:null,money:true},
  {label:'Liberados para faturamento',value:t.readyToInvoice},
  {label:'Liberados sem nº de fatura',value:t.withoutInvoice},

@@ -624,3 +624,9 @@ body{background:#08090b;color:#f6f7f8}
 @media(max-width:780px){.recv-enterprises{padding:15px}.recv-company-summaries{grid-template-columns:repeat(2,minmax(0,1fr))}.recv-enterprise-toolbar{gap:13px}.recv-company-select-label{max-width:none}}
 @media(max-width:420px){.recv-company-summaries{grid-template-columns:1fr}.recv-enterprises .recv-company-tile{min-height:90px;padding:13px 14px}.recv-enterprises .recv-company-tile.active::before{left:13px;right:13px}}
 @media(prefers-reduced-motion:reduce){.recv-enterprises .recv-company-tile{transition:none}.recv-enterprises .recv-company-tile:hover{transform:none}}
+
+/* Legibilidade da origem financeira sem alterar tema COSTALOG. */
+.finance-invoices .finance-source-note{margin:12px 0;padding:10px 14px;border-left:3px solid #dc334b;border-radius:8px;background:#24252b;color:#d8d9df;font-size:12px;line-height:1.6}
+.finance-invoices .finance-source-warning{margin:13px 0;color:#e8bf96;font-size:12px;line-height:1.65}
+.finance-invoices .info-strip button{margin-left:10px}
+@media(max-width:700px){.finance-invoices .info-strip button{display:block;margin:9px 0 0}}
