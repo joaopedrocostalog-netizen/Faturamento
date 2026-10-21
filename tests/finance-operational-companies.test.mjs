@@ -88,8 +88,8 @@ test('Separação funciona no Faturamento e CT-e e não cria API de parceiros/mo
  const server=readFileSync('api/server.mjs','utf8');
  assert(app.includes("state.recvCompany||'all'"));
  assert(app.includes("overviewByCompany(value,state.recvCompany||'all')"));
- assert(app.includes("{key:'empresa',label:'Empresa (DSS)'}"));
- assert(advanced.includes("{key:'empresa',label:'Empresa (DSS)'}"));
+ assert(app.includes("{key:'empresa',label:'Empresa'}"));
+ assert(advanced.includes("{key:'empresa',label:'Empresa'}"));
  assert(server.includes("'company-operations-ui.mjs'"));
  assert(!server.includes("DSS_PARCEIROS_PATH"));
 });

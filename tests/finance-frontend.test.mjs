@@ -19,7 +19,7 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
  assert(!root.innerHTML.includes('data-nav="relatorios"'));
  const nav=v=>events.click({target:{closest:q=>q==='[data-nav]'?{dataset:{nav:v}}:null}});
  nav('documentos');
- assert(root.innerHTML.includes('DOCUMENTOS ELETRÔNICOS / NFS-e'));
+ assert(root.innerHTML.includes('NOTAS FISCAIS E DOCUMENTOS'));
  assert.equal((root.innerHTML.match(/data-action="docs-sync-open"/g)||[]).length,1,'Um único botão, no cabeçalho de datas');
  assert(root.innerHTML.includes('id="docsSortKey"'));
  assert(root.innerHTML.includes('Valor final'));

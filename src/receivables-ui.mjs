@@ -1,6 +1,6 @@
 /** Parcelas a receber: tabela paginada, 34 campos em detalhes e gráficos leves, sem dependências. */
 import {RECEIVABLE_FIELDS,RECEIVABLE_NUMBERS,RECEIVABLE_DATES,receivablesSummary} from './receivables.mjs';
-import {COSTALOG_COMPANIES,COMPANY_UNIDENTIFIED,COMPANY_ALL,receivablesByCompany,companyDistribution} from './companies.mjs';
+import {COSTALOG_COMPANIES,COMPANY_UNIDENTIFIED,COMPANY_ALL,receivablesByCompany,companyDistribution,operationalCompanyMetrics} from './companies.mjs';
 const h=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const brl=x=>Number.isFinite(x)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(x):'—';
 const num=x=>new Intl.NumberFormat('pt-BR').format(x);
@@ -81,19 +81,22 @@ function agingTable(rows){
  '<tbody>'+rows.map(g=>'<tr><td>'+h(g.name)+'</td><td>'+num(g.count)+'</td><td>'+h(g.known?brl(g.value):'—')+'</td><td>'+h(g.faceKnown?brl(g.face):'—')+'</td></tr>').join('')+'</tbody></table></div></section>';
 }
 const companyTitle=k=>k===COMPANY_UNIDENTIFIED?'Outras / não identificadas':k;
-export function renderCompanyFilter(rows,state){
+export function renderCompanyFilter(rows,state,operations={}){
  const selected=state.recvCompany||COMPANY_ALL;
- const distribution=companyDistribution(rows);
+ const distribution=companyDistribution(rows),orders=operationalCompanyMetrics(operations);
+ const operationalView=['faturamento','ctes','clientes','conciliacao','comparativos','analises'].includes(state.view);
+ const operationalCounts=new Map(orders.map(x=>[x.name,x.pedidos]));
+ const countSuffix=operationalView?'pedido(s)':'parcela(s)';
  return '<section class="recv-enterprises"><div class="recv-enterprise-toolbar">'+
- '<div><strong>EMPRESAS DO GRUPO</strong><p>Filtre parcelas, pedidos e viagens pelo campo empresa das respectivas APIs DSS. A contagem dos cartões abaixo se refere somente a parcelas; NFS-e sem empresa não é separada.</p></div>'+
+ '<div><strong>EMPRESAS DO GRUPO</strong><p>Escolha uma empresa para ver seus pedidos e valores. Notas fiscais sem empresa só podem ser relacionadas por referência.</p></div>'+
  '<label for="recvCompany">Empresa<select class="control" id="recvCompany">'+
  '<option value="all" '+(selected===COMPANY_ALL?'selected':'')+'>Todas as empresas</option>'+
  COSTALOG_COMPANIES.map(k=>'<option value="'+h(k)+'" '+(selected===k?'selected':'')+'>'+h(k)+'</option>').join('')+
  '<option value="unidentified" '+(selected===COMPANY_UNIDENTIFIED?'selected':'')+'>Outras / não identificadas</option></select></label></div>'+
  '<div class="recv-company-summaries">'+distribution.map(({name,count})=>
  '<button type="button" class="recv-company-tile '+(selected===name?'active':'')+'" data-company-select="'+h(name)+'">'+
- '<span>'+h(companyTitle(name))+'</span><strong>'+num(count)+'</strong><small>parcela(s)</small></button>').join('')+'</div>'+
- (distribution.at(-1)?.count?'<p class="ins-hint">Há '+num(distribution.at(-1).count)+' registro(s) cujo campo empresa não corresponde exatamente a uma das quatro empresas. Não foram atribuídos automaticamente para evitar valores incorretos.</p>':'')+
+ '<span>'+h(companyTitle(name))+'</span><strong>'+num(operationalView?(operationalCounts.get(name)||0):count)+'</strong><small>'+countSuffix+'</small></button>').join('')+'</div>'+
+ (distribution.at(-1)?.count?'<p class="ins-hint">Registros sem empresa identificada permanecem separados para evitar mistura de informações.</p>':'')+
  '</section>';
 }
 function companyBreakdown(rows){

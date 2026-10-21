@@ -14,6 +14,7 @@ import {normalizeReceivables} from './receivables.mjs';
 import {loadReceivablesByPeriod} from './receivables-batch.mjs';
 import {renderReceivables,renderReceivablesTokenDialog,renderCompanyFilter} from './receivables-ui.mjs';
 import {overviewByCompany} from './companies.mjs';
+import {renderReconciliation} from './reconciliation-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
 import {fetchAuthorizedDocuments,fetchAuthorizedOverview,fetchAuthorizedReceivables} from './dss-sync.mjs';
@@ -145,7 +146,7 @@ const state = {
  {empresa:'EXEMPLO',dataEmissao:'2026-10-02',parceiro:'PARCEIRO FICTÍCIO B',parcela:'1/1',fatura:'DEMO-002',
  situacaoFatura:'PAGA',dataVencimento:'2026-10-12',dataPagamento:'2026-10-10',valor:850,valorPagamento:850,valorResidual:0,tipoFatura:'Armazenagem'}
  ]}),recvSource:'demo',recvError:'',recvLoading:false,recvDialogOpen:false,recvRef:'E',
- recvCompany:'all',recvStatus:'',recvQuick:'todos',recvSortKey:'prioridade',recvSortDir:'asc',recvPage:1,recvSearch:'',recvProgress:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
+ recvCompany:'all',reconStatus:'todos',reconOrder:'prioridade',reconPage:1,reconSearch:'',recvStatus:'',recvQuick:'todos',recvSortKey:'prioridade',recvSortDir:'asc',recvPage:1,recvSearch:'',recvProgress:'',docsSortKey:'valorFinal',docsSortDir:'desc',docsStatus:'',docsModel:'',docsOperation:'',docsSupport:'',docsPage:1,syncProgress:'',syncError:'',
  apiUrl:'',token:'',importCount:0,
  globalQuery:'',clientSelected:'',routeSelected:'',driverSelected:'',alertKind:'todos',
  metricLayout:null,showMetricOptions:false,comparison:null,comparisonLoading:false,comparisonError:'',comparisonSyncOpen:false,
@@ -198,15 +199,19 @@ function inRange(v){return !v||((!state.from||v>=state.from)&&(!state.to||v<=sta
 let scopedCache=null;
 function scoped(){
  const d=state.dataset;
- const cacheKey=[state.from,state.to,state.customer,state.vehicle,state.serviceType,state.recvCompany||'all'].join('|');
+ // Placa e tipo de serviço são filtros exclusivamente operacionais.
+ const byClient=['faturamento','ctes','clientes'].includes(state.view)?state.customer:'';
+ const byPlate=state.view==='ctes'?state.vehicle:'';
+ const byService=['faturamento','ctes'].includes(state.view)?state.serviceType:'';
+ const cacheKey=[state.from,state.to,byClient,byPlate,byService,state.recvCompany||'all'].join('|');
  if(scopedCache&&scopedCache.dataset===d&&scopedCache.key===cacheKey)return scopedCache.value;
- const matches=r=>(!state.customer||r.cliente===state.customer)&&(!state.vehicle||r.placa===state.vehicle);
+ const matches=r=>(!byClient||r.cliente===byClient)&&(!byPlate||r.placa===byPlate);
  let viagens=d.viagens.filter(v=>inRange(v.data)&&matches(v));
- const pedidos=d.pedidos.filter(p=>inRange(p.data)&&matches(p)&&(!state.serviceType||p.tipoServico===state.serviceType));
- const ctes=d.ctes.filter(c=>inRange(c.data)&&matches(c)&&(!state.serviceType||c.tipoServico===state.serviceType));
- const mdfes=d.mdfes.filter(x=>inRange(x.data)&&(!state.vehicle||x.placa===state.vehicle));
+ const pedidos=d.pedidos.filter(p=>inRange(p.data)&&matches(p)&&(!byService||p.tipoServico===byService));
+ const ctes=d.ctes.filter(c=>inRange(c.data)&&matches(c)&&(!byService||c.tipoServico===byService));
+ const mdfes=d.mdfes.filter(x=>inRange(x.data)&&(!byPlate||x.placa===byPlate));
  const ocorrencias=(d.ocorrencias||[]).filter(x=>inRange(x.data)&&(!state.vehicle||x.placa===state.vehicle));
- if(state.serviceType)viagens=viagens.filter(v=>pedidos.some(p=>p.viagemId===v.id));
+ if(byService)viagens=viagens.filter(v=>pedidos.some(p=>p.viagemId===v.id));
  const value={viagens,allViagens:d.viagens,ctes,pedidos,mdfes,ocorrencias,sources:d.sources};
  const segmented=overviewByCompany(value,state.recvCompany||'all');
  scopedCache={dataset:d,key:cacheKey,value:segmented};return segmented;
@@ -224,7 +229,7 @@ function totals(data){
 }
 // As abas de Análises financeiras e Relatórios financeiros permanecem definidas
 // aqui para uso futuro, mas são filtradas por VISIBLE_VIEWS em access-ui.mjs.
-const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['documentos','doc','Documentos / NFS-e'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['gerencial','chart','Visão Gerencial'],['receber','doc','Contas a Receber'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
+const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],['documentos','doc','Notas fiscais'],['ctes','doc','Pedidos / CT-e'],['clientes','chart','Clientes / Fretes'],['conciliacao','git-merge','Conferir documentos'],['gerencial','chart','Visão Gerencial'],['receber','doc','Contas a Receber'],['analises','chart','Análises financeiras'],['comparativos','chart','Comparativos'],['relatorios','doc','Relatórios financeiros']];
 const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],['entregas','Entregas'],['pendencias','Pendências'],['rotas','Rotas'],['veiculos','Frota'],['motoristas','Motoristas'],['ocorrencias','Ocorrências'],['mdfes','MDF-e'],['relatorios','Relatórios'],['faturamento','Faturamento'],['clientes','Clientes'],['analises','Análises financeiras'],['administracao','Administração'],['integracoes','Integração']];
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
@@ -234,7 +239,7 @@ function render(){
  // Os totais operacionais profundos eram calculados até em tabelas que não os utilizam.
  const d=scoped(),stats=['viagens','mdfes'].includes(state.view)?totals(d):null;
  const allowed=navItems.filter(x=>x[0]!=='integracoes'&&permittedView(state.role,x[0]));
- const PRIMARY=['painel','faturamento','documentos','ctes','clientes','gerencial','receber','analises','comparativos','relatorios'];
+ const PRIMARY=['painel','faturamento','documentos','ctes','clientes','conciliacao','gerencial','receber','analises','comparativos','relatorios'];
  const secondary=allowed.filter(x=>!PRIMARY.includes(x[0]));
  const tab=(x,cl)=>'<button type="button" class="'+cl+' '+(state.view===x[0]?'active':'')+'" data-nav="'+x[0]+'" aria-current="'+(state.view===x[0]?'page':'false')+'">'+icon(x[1])+'<span>'+esc(x[2])+'</span></button>';
  const primary=allowed.filter(x=>PRIMARY.includes(x[0])).map(x=>tab(x,'v-nav-item')).join('');
@@ -246,8 +251,9 @@ function render(){
   :state.mode==='live'
   ?'<div class="info-strip live"><strong>DSS SINCRONIZADO</strong> · Painel, Faturamento, NFS-e, Pedidos e Clientes usam o período '+esc(state.loadedRange?.from||state.from)+' a '+esc(state.loadedRange?.to||state.to)+' · '+esc(state.docsUpdatedAt||'')+'.</div>'
   :'<div class="info-strip v-demo-notice"><strong>DEMONSTRAÇÃO</strong> · Dados fictícios. Para sincronizar o site, use o botão vermelho ao lado das datas.</div>';
- const detailedFilters=state.view!=='acesso'?'<details class="v-extra-filters" '+(state.extraFiltersOpen?'open':'')+'><summary data-action="toggle-advanced-filters">⚙ Filtros avançados <span>Cliente, placa, serviço e períodos rápidos</span></summary>'+
- (state.extraFiltersOpen?operationalFilters(d,state):'')+'</details>':'';
+ const usesAdvancedFilters=['faturamento','ctes','clientes'].includes(state.view);
+ const detailedFilters=usesAdvancedFilters?'<details class="v-extra-filters" '+(state.extraFiltersOpen?'open':'')+'><summary data-action="toggle-advanced-filters">Mais filtros <span>'+(state.view==='ctes'?'Cliente, placa e serviço':state.view==='clientes'?'Cliente':'Cliente e serviço')+'</span></summary>'+
+ (state.extraFiltersOpen?operationalFilters(overviewByCompany(state.dataset,state.recvCompany||'all'),state):'')+'</details>':'';
  const tools=['ctes','relatorios','faturamento','clientes'].includes(state.view)?
   '<div class="v-heading-tools">'+button('csv',icon('download')+' CSV','btn-sm')+button('print','PDF / Imprimir','btn-sm btn-red')+'</div>':'';
  const dateFilters=state.view==='acesso'?'':renderFilters();
@@ -260,7 +266,7 @@ function render(){
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
  '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:docsLive?'live':state.mode,financeiro:state.permissions.financeiro})+
  '<div class="v-tools-row">'+dateFilters+tools+'</div>'+renderSearchBar()+globalSearch+detailedFilters+message+
- (['painel','faturamento','ctes','clientes','gerencial','receber','comparativos','analises'].includes(state.view)?renderCompanyFilter(state.recvRows,state):'')+
+ (['painel','faturamento','ctes','clientes','conciliacao','gerencial','receber','comparativos','analises'].includes(state.view)?renderCompanyFilter(state.recvRows,state,state.dataset):'')+
  (state.syncError?'<div class="info-strip error"><strong>Sincronização:</strong> '+esc(state.syncError)+'</div>':'')+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
@@ -271,7 +277,7 @@ function render(){
  (state.recvDialogOpen?renderReceivablesTokenDialog(state):'');
 }
 function renderFilters(){
- if(state.view==='integracoes')return '';
+ if(state.view==='integracoes'||state.view==='comparativos')return '';
  return '<div class="filters global-sync-filters"><div class="filter"><label for="from">Data inicial</label><input class="control" id="from" type="date" max="'+localToday()+'" value="'+attr(state.from)+'"></div>'+
  '<div class="filter"><label for="to">Data final</label><input class="control" id="to" type="date" max="'+localToday()+'" value="'+attr(state.to)+'"></div>'+
  '<div class="filter sync-filter"><label>Atualização dos módulos</label><button type="button" class="btn btn-red sync-main-btn" data-action="docs-sync-open" '+(state.docsLoading?'disabled':'')+'>'+icon('reload')+' '+(state.docsLoading?(state.syncProgress||'SINCRONIZANDO...'):'SINCRONIZAR COM DSS')+'</button></div>'+
@@ -304,6 +310,7 @@ function renderView(d,s){
  if(state.view==='documentos')return renderElectronicDocuments(state.docsRows,state);
  if(state.view==='gerencial')return renderManagerialDashboard(state.docsRows,d.pedidos,state);
  if(state.view==='receber')return renderReceivables(state.recvRows,state);
+ if(state.view==='conciliacao')return renderReconciliation(state.dataset.pedidos,state.docsRows,state.recvRows,state);
  if(state.view==='graficos')return renderCharts(d,{financeiro:state.permissions.financeiro,interval:state.chartInterval});
  if(state.view==='viagens')return renderTripsHeader(d)+renderViagens(d,s);
  if(state.view==='ctes')return renderCtes(d);
@@ -408,7 +415,7 @@ function renderCtes(d){
  if(state.filter==='pendente')rows=rows.filter(x=>!x.viagemId);
  const cols=[
   {key:'numero',label:'Nº documento',detail:'ctes'},{key:'pedidoNumero',label:'Pedido PF'},
-  {key:'cteNumero',label:'CT-e'},{key:'empresa',label:'Empresa (DSS)'},{key:'data',label:'Emissão',format:'date'},{key:'dataCte',label:'Emissão CT-e',format:'date'},
+  {key:'cteNumero',label:'CT-e'},{key:'empresa',label:'Empresa'},{key:'data',label:'Emissão',format:'date'},{key:'dataCte',label:'Emissão CT-e',format:'date'},
   {key:'cliente',label:'Cliente'},{key:'motoristaNome',label:'Motorista'}, {key:'placa',label:'Placa'},
   {key:'rvReferencia',label:'RV ref.'},{key:'nroMdf',label:'MDF-e ref.'},
   {key:'valor',label:'Valor frete',format:'money'},{key:'valorReceber',label:'Valor a receber',format:'money'},
@@ -418,7 +425,7 @@ function renderCtes(d){
   {key:'valorIcmsIss',label:'ICMS/ISS',format:'money'},{key:'valorAverbacao',label:'Averbação',format:'money'},
   {key:'status',label:'Situação'}];
  return '<div class="info-strip">CT-e é identificado quando nro_cte possui número válido. “Sem RV” significa vínculo não localizado na consulta, não prova que a RV inexista. Situações fiscais completas exigem outras fontes.</div>'+
- renderGrid('Pedidos de frete e CT-e',rows,state.permissions.financeiro?cols:cols.filter(x=>!['valor','valorReceber','liberadoFaturamento','numeroFatura','valorIcmsIss','valorAverbacao'].includes(x.key)),state,'ctes','Dados disponíveis nos pedidos de frete');
+ renderGrid('Pedidos de frete e CT-e',rows,state.permissions.financeiro?cols:cols.filter(x=>!['valor','valorReceber','liberadoFaturamento','numeroFatura','valorIcmsIss','valorAverbacao'].includes(x.key)),state,'ctes','Informações registradas nos pedidos de frete');
 }
 function renderClientes(d,s){
  const rows=searchRows(aggregateClients(d.viagens,d.pedidos)).map(v=>{
@@ -956,7 +963,7 @@ root.addEventListener('click',e=>{
  const companyButton=e.target.closest('[data-company-select]');
  if(companyButton){
   state.recvCompany=companyButton.dataset.companySelect;
-  state.recvPage=1;render();return;
+  state.recvPage=1;state.reconPage=1;state.page=1;render();return;
  }
  const nav=e.target.closest('[data-nav]');if(nav){if(!permittedView(state.role,nav.dataset.nav))return;state.view=nav.dataset.nav;state.clientSelected='';state.routeSelected='';state.driverSelected='';state.globalQuery='';state.search='';state.filter='todos';state.sortKey='';state.page=1;state.menu=false;state.selected=null;render();if(state.view==='administracao'&&state.permissions.admin)loadAdminUsers();return;}
  const sorter=e.target.closest('[data-sort-metric]');
@@ -1001,6 +1008,9 @@ root.addEventListener('click',e=>{
  if(action==='recv-next'){state.recvPage++;render();}
  if(action==='recv-clear'){state.recvStatus='';state.recvSearch='';state.recvQuick='todos';state.recvSortKey='prioridade';state.recvSortDir='asc';state.recvPage=1;render();}
  if(action==='toggle-advanced-filters'){state.extraFiltersOpen=!state.extraFiltersOpen;render();return;}
+ if(action==='recon-clear'){state.reconStatus='todos';state.reconOrder='prioridade';state.reconSearch='';state.reconPage=1;render();return;}
+ if(action==='recon-prev'&&state.reconPage>1){state.reconPage--;render();return;}
+ if(action==='recon-next'){state.reconPage++;render();return;}
  if(action==='customer-detail-prev'&&state.clientDetailPage>1){state.clientDetailPage--;render();return;}
  if(action==='customer-detail-next'){state.clientDetailPage++;render();return;}
  if(action==='comparison-sync-cancel'){state.comparisonSyncOpen=false;render();}
@@ -1102,7 +1112,9 @@ root.addEventListener('change',e=>{
   state.recvQuick='todos';state.recvSortKey=state.recvRef==='P'?'dataPagamento':'prioridade';state.recvSortDir=state.recvRef==='P'?'desc':'asc';
   state.recvStatus='';state.recvError='';state.recvPage=1;render();return;
  }
- if(e.target.id==='recvCompany'){state.recvCompany=e.target.value;state.recvPage=1;render();return;}
+ if(e.target.id==='recvCompany'){state.recvCompany=e.target.value;state.recvPage=1;state.reconPage=1;state.page=1;render();return;}
+ if(e.target.id==='reconStatus'){state.reconStatus=e.target.value;state.reconPage=1;render();return;}
+ if(e.target.id==='reconOrder'){state.reconOrder=e.target.value;state.reconPage=1;render();return;}
  if(e.target.id==='recvStatus'){state.recvStatus=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='recvQuick'){state.recvQuick=e.target.value;state.recvPage=1;render();return;}
  if(e.target.id==='recvSortKey'){state.recvSortKey=e.target.value;state.recvPage=1;render();return;}
@@ -1141,6 +1153,10 @@ root.addEventListener('input',e=>{
   const input=document.getElementById('globalSearchInput');
   if(input){input.focus();if(typeof input.setSelectionRange==='function'&&typeof cursor==='number')input.setSelectionRange(cursor,cursor);}
   return;
+ }
+ if(e.target.id==='reconSearch'){
+  state.reconSearch=e.target.value;state.reconPage=1;clearTimeout(searchRenderTimer);
+  searchRenderTimer=setTimeout(()=>{searchRenderTimer=null;render();document.getElementById('reconSearch')?.focus();},180);return;
  }
  if(e.target.id==='recvSearchInput'){
   state.recvSearch=e.target.value;state.recvPage=1;clearTimeout(searchRenderTimer);

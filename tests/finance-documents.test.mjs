@@ -55,7 +55,7 @@ test('Tabela NFS-e, filtros, indicadores e CSV preservam separação do portal',
  const state={from:'2026-10-11',to:'2026-10-31',search:'',mode:'demo',docsLoading:false,docsError:''};
  assert.equal(filteredElectronicDocuments(rows,state).length,1);
  const html=renderElectronicDocuments(rows,state);
- assert(html.includes('DOCUMENTOS ELETRÔNICOS / NFS-e'));
+ assert(html.includes('NOTAS FISCAIS E DOCUMENTOS'));
  assert(html.includes('EXEMPLOS')||html.includes('DEMONSTRAÇÃO'));
  assert(html.includes('CLIENTE EXEMPLO')===false);
  assert(html.includes('Teste B'));assert(!html.includes('Teste A'));
