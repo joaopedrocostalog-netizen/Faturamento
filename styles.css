@@ -541,3 +541,23 @@ body{background:#08090b;color:#f6f7f8}
 .company-ops-values{display:flex;align-items:start;justify-content:space-between;gap:6px;flex-wrap:wrap}
 .company-ops-values>span{font-size:11px;color:#c7c8cd}
 @media(max-width:780px){.company-ops-grid{grid-template-columns:1fr}}
+
+/* Conciliação documental: mesma identidade visual escura/vermelha, sem tabelas gigantes. */
+.recon-view .section-title{margin-bottom:7px}
+.recon-help{background:#25262b;border-left:3px solid #d5314a;border-radius:5px;padding:13px 16px;margin:14px 0}
+.recon-help strong{font-size:12px;letter-spacing:.02em}
+.recon-help p{color:#c2c4cb;font-size:12px;line-height:1.65;margin:6px 0 0}
+.recon-toolbar{display:flex;gap:11px;align-items:flex-end;flex-wrap:wrap;margin:18px 0}
+.recon-toolbar>label{display:grid;gap:6px;color:#b9bdc7;font-size:11px;font-weight:700;flex:1 1 180px}
+.recon-toolbar .recon-search{flex:2 1 255px}
+.recon-toolbar .control{width:100%;min-height:38px}
+.recon-table{overflow-x:auto;margin-top:10px}
+.recon-table table{min-width:1150px}
+.recon-table th{white-space:nowrap}
+.recon-table td{vertical-align:top}
+.recon-status{display:inline-block;font-size:11px;font-weight:750;line-height:1.3;padding:4px 8px;border-radius:6px;background:#343640;color:#f3f3f4;white-space:nowrap}
+.recon-status.vinculado{background:#18443c;color:#a2e7cb}
+.recon-status.conferir{background:#5b2b30;color:#ffc9cd}
+.recon-status.sem_correspondencia{background:#503e27;color:#f9db9f}
+.recon-reason{display:block;margin-top:7px;color:#adb0bb;font-size:10px;line-height:1.5;max-width:245px}
+@media(max-width:650px){.recon-toolbar>label,.recon-toolbar>.btn{flex:1 1 100%}}

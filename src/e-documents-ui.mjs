@@ -59,7 +59,7 @@ export function renderElectronicDocuments(rows,state){
  const trs=pageRows.map(d=>'<tr>'+cols.map(([key])=>'<td>'+(
   key==='dataEmissao'?dt(d[key]):['valorFinal','totalIss'].includes(key)?h(brl(d[key])):h(d[key]||'—')
  )+'</td>').join('')+'</tr>').join('');
- return '<section class="ins-module"><div class="section-title"><h2>DOCUMENTOS ELETRÔNICOS / NFS-e</h2><span>'+(real?'Dados DSS':'Exemplos fictícios')+'</span></div>'+
+ return '<section class="ins-module"><div class="section-title"><h2>NOTAS FISCAIS E DOCUMENTOS</h2><span>'+(real?'Dados DSS':'Exemplos fictícios')+'</span></div>'+
  '<div class="info-strip '+(real?'live':'')+'">'+h(notes)+'</div>'+
  '<div class="kpis">'+kpi('DOCUMENTOS',String(v.count),'Na pesquisa e filtros')+
  kpi('COM NÚMERO NFS-e',String(v.withNfse),'Número preenchido')+

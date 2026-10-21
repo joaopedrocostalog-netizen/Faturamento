@@ -17,12 +17,12 @@ export function operationalFilters(d,s){
  const filter=(id,title,items,val)=>'<label class="filter grow filter-compact"><span>'+h(title)+'</span><select id="'+id+'" class="control full"><option value="">Todos</option>'+opts(items,val)+'</select></label>';
  return '<div class="filter-advanced"><div class="filter-row">'+
  filter('filterClient','Cliente',clients,s.customer||'')+
- filter('filterPlate','Veículo / placa',plates,s.vehicle||'')+
- filter('filterType','Tipo de serviço',types,s.serviceType||'')+
+ (s.view==='ctes'?filter('filterPlate','Placa do veículo (opcional)',plates,s.vehicle||''):'')+
+ (s.view!=='clientes'?filter('filterType','Serviço prestado',types,s.serviceType||''):'')+
  '<label class="filter"><span>Período rápido</span><select class="control" id="quickPeriod"><option value="">Selecionar</option><option value="this-month">Este mês</option><option value="last-month">Mês anterior</option><option value="this-year">Ano atual</option><option value="last-90">Últimos 90 dias</option></select></label>'+
  '</div><div class="filter-row filter-row-actions">'+
  '<label class="filter"><span>Ordenação</span><select id="sortDir" class="control"><option value="desc" '+(s.sortDir!=='asc'?'selected':'')+'>Decrescente</option><option value="asc" '+(s.sortDir==='asc'?'selected':'')+'>Crescente</option></select></label>'+
- '<button class="btn btn-sm" data-action="clear-filters">Limpar filtros</button><button class="btn btn-sm" data-action="save-filter">Salvar filtros</button>'+
+ '<button class="btn btn-sm" data-action="clear-filters">Limpar filtros</button><button class="btn btn-sm" data-action="save-filter">Guardar seleção</button>'+
  '<label class="filter"><span>Filtros salvos</span><select id="savedPreset" class="control"><option value="">Carregar</option>'+opts(Object.keys(s.presets||{}),'')+'</select></label>'+
  '<button class="btn btn-sm" data-action="delete-filter">Excluir filtro salvo</button>'+
  '</div></div>';
@@ -63,7 +63,7 @@ const routesCols=[{key:'name',label:'Rota'},{key:'viagens',label:'Viagens',forma
 const vehiclesCols=[{key:'name',label:'Veículo / placa'},{key:'viagens',label:'Viagens',format:'number'},{key:'km',label:'KM realizados',format:'number'},{key:'fuel',label:'Abastecimento',format:'money'},{key:'freight',label:'Fretes vinculados',format:'money'}];
 const driversCols=[{key:'name',label:'Motorista (DSS)'},{key:'orders',label:'Pedidos',format:'number'},{key:'ctes',label:'CT-e',format:'number'},{key:'freight',label:'Valor pedidos',format:'money'}];
 const containerCols=[{key:'name',label:'Container'},{key:'viagens',label:'Registros RV',format:'number'},{key:'pedidos',label:'Pedidos',format:'number'},{key:'lastDate',label:'Último registro',format:'date'}];
-const invoiceCols=[{key:'pedidoNumero',label:'Pedido'},{key:'cteNumero',label:'CT-e'},{key:'empresa',label:'Empresa (DSS)'},{key:'cliente',label:'Cliente'},{key:'data',label:'Emissão',format:'date'},{key:'numeroFatura',label:'Fatura'},{key:'liberadoFaturamento',label:'Liberado',format:'bool'},{key:'entregaConcluida',label:'Entrega',format:'bool'},{key:'comprovanteEntrega',label:'Comprovante',format:'bool'},{key:'valorReceber',label:'Valor a receber',format:'money'}];
+const invoiceCols=[{key:'pedidoNumero',label:'Pedido'},{key:'cteNumero',label:'CT-e'},{key:'empresa',label:'Empresa'},{key:'cliente',label:'Cliente'},{key:'data',label:'Emissão',format:'date'},{key:'numeroFatura',label:'Fatura'},{key:'liberadoFaturamento',label:'Liberado',format:'bool'},{key:'entregaConcluida',label:'Entrega',format:'bool'},{key:'comprovanteEntrega',label:'Comprovante',format:'bool'},{key:'valorReceber',label:'Valor a receber',format:'money'}];
 const alertCols=[{key:'level',label:'Prioridade'},{key:'title',label:'Pendência'},{key:'detail',label:'Detalhes'},{key:'refDate',label:'Data ref.',format:'date'},{key:'view',label:'Área'},{key:'recordId',label:'ID do registro'}];
 function monthlyPanel(i,s){
  const rows=i.months.filter(x=>x.trips||x.orders);

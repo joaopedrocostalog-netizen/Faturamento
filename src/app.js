@@ -418,7 +418,7 @@ function renderCtes(d){
   {key:'valorIcmsIss',label:'ICMS/ISS',format:'money'},{key:'valorAverbacao',label:'Averbação',format:'money'},
   {key:'status',label:'Situação'}];
  return '<div class="info-strip">CT-e é identificado quando nro_cte possui número válido. “Sem RV” significa vínculo não localizado na consulta, não prova que a RV inexista. Situações fiscais completas exigem outras fontes.</div>'+
- renderGrid('Pedidos de frete e CT-e',rows,state.permissions.financeiro?cols:cols.filter(x=>!['valor','valorReceber','liberadoFaturamento','numeroFatura','valorIcmsIss','valorAverbacao'].includes(x.key)),state,'ctes','Consulta de campos disponíveis em GET /listarPedidosFrete');
+ renderGrid('Pedidos de frete e CT-e',rows,state.permissions.financeiro?cols:cols.filter(x=>!['valor','valorReceber','liberadoFaturamento','numeroFatura','valorIcmsIss','valorAverbacao'].includes(x.key)),state,'ctes','Dados disponíveis nos pedidos de frete');
 }
 function renderClientes(d,s){
  const rows=searchRows(aggregateClients(d.viagens,d.pedidos)).map(v=>{
@@ -451,7 +451,7 @@ function renderIntegracoes(){
  return '<div class="section-title"><h2>Integração com o DSS</h2><span>Configuração técnica</span></div>'+
  '<div class="integration-box"><strong>1. Fontes mapeadas</strong><p><code>GET /listarViagens</code> e <code>GET /listarPedidosFrete</code>: <code>data_inicio</code> e <code>data_fim</code> em dd/mm/aaaa. Ambos usam array <code>registros</code>. Ainda é necessário confirmar endereço base e autenticação do DSS.</p><a href="https://costalog.dssinformatica.com.br/wsdss/docs?urls.primaryName=APIs+Gerais" rel="noopener noreferrer" target="_blank">Abrir documentação fornecida do DSS ↗</a></div>'+
  '<div class="integration-box"><strong>2. Backend seguro</strong><p>As consultas saem do backend <code>api/server.mjs</code>. Configure o endereço, as rotas e credenciais exclusivamente nas variáveis do servidor; nunca no JavaScript público ou no GitHub. O endpoint interno esperado pelo portal é <code>GET /api/overview</code>.</p></div>'+
- '<div class="integration-box"><strong>3. CT-e e MDF-e</strong><p><code>nro_cte</code> identifica CT-e; <code>rv_viagem</code> vincula às viagens; <code>nro_mdf</code> fornece referências de MDF-e. <code>total_frete</code> é valor de pedido e <code>valor_total_abastecido</code> representa somente despesa parcial.</p></div>'+
+ '<div class="integration-box"><strong>3. CT-e e MDF-e</strong><p><code>nro_cte</code> identifica CT-e; <code>rv_viagem</code> vincula às viagens; <code>nro_mdf</code> fornece referências de MDF-e. O valor do frete pertence ao pedido e o valor abastecido representa somente despesa parcial.</p></div>'+
  '<div class="integration-box"><strong>4. Publicação no site da empresa</strong><p>A interface é estática e pode ser incorporada por iframe ou rota interna. O backend deve ficar protegido por autenticação e HTTPS, preferencialmente no mesmo domínio da empresa ou atrás do proxy corporativo. GitHub Pages, isoladamente, não executa o backend do DSS.</p></div>';
 }
 function renderDrawer(d){

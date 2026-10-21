@@ -63,7 +63,7 @@ export function renderManagerialDashboard(documents,orders=[],state={}){
  const missing=[
   ['Sem número NFS-e',s.semNfse,'Verificar preenchimento, não concluir ausência de emissão'],
   ['Sem fatura informada',s.semFatura,'Conferir referência da fatura, não concluir inadimplência'],
-  ['Valor final ausente',s.count-s.knownFinal,'Conferir o campo valor_final na origem'],
+  ['Valor final ausente',s.count-s.knownFinal,'Conferir o valor da nota no sistema'],
   ['ISS não informado',s.count-s.knownIss,'Conferir o campo total_iss na origem']
  ];
  return '<section class="ins-module mgmt-dashboard"><div class="section-title"><h2>VISÃO GERENCIAL DSS</h2><span>'+esc(source)+'</span></div>'+
@@ -77,7 +77,7 @@ export function renderManagerialDashboard(documents,orders=[],state={}){
  (receivable?kpi('SALDO RESIDUAL A RECEBER',receivable.residualKnown?money(receivable.residual):'—','DSS Contas a Receber; '+n(receivable.residualKnown)+' saldos conhecidos'):'')+
  (receivable?kpi('PARCELAS VENCIDAS COM SALDO',n(receivable.lateCount),'Vencimento passado e valor residual positivo'):'')+
  '</div>'+renderOperationalCompanies({pedidos:orders},state)+
- '<div class="mgmt-chart-grid">'+trend(s.meses)+chart('Valor por tipo de operação','Soma do valor_final informado',s.operacoes)+
+ '<div class="mgmt-chart-grid">'+trend(s.meses)+chart('Valor por tipo de operação','Total das notas com valor informado',s.operacoes)+
  chart('Principais parceiros','Valor final de documentos por parceiro',s.parceiros)+
  chart('Documentos por situação','Classificação textual recebida do DSS',s.situacoes,{moneyAxis:false,top:10})+
  chart('Valor por ponto de apoio','Concentração por unidade/ponto de apoio',s.apoios)+

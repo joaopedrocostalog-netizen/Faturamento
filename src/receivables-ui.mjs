@@ -115,9 +115,9 @@ export function renderReceivables(rows,state){
  const financialMode=summary.residual!==0?'residual':summary.faceKnown>0&&summary.face!==0?'nominal':'count';
  const allTypesMissing=summary.count>0&&summary.missingTypes===summary.count;
  const notices=[
-  summary.paidWithoutAmount?num(summary.paidWithoutAmount)+' parcela(s) classificadas como pagas pelo DSS, mas com valorPagamento zerado ou ausente. O valor nominal NÃO será tratado como pagamento recebido.':'',
-  summary.openWithZeroResidual?num(summary.openWithZeroResidual)+' parcela(s) classificadas como abertas com valor nominal positivo, mas valorResidual = 0 informado pelo DSS. Saldo a receber não pode ser confirmado por esse campo.':'',
-  summary.missingTypes?num(summary.missingTypes)+' parcela(s) sem tipoFatura fornecido pelo DSS. O gráfico usa centro de custo como classificação alternativa quando nenhum tipo está disponível.':'',
+  summary.paidWithoutAmount?num(summary.paidWithoutAmount)+' parcela(s) classificadas como pagas pelo DSS, mas sem valor de pagamento preenchido. O valor nominal NÃO será tratado como pagamento recebido.':'',
+  summary.openWithZeroResidual?num(summary.openWithZeroResidual)+' parcela(s) classificadas como abertas com valor nominal positivo, mas com saldo zerado informado no sistema. Saldo a receber não pode ser confirmado por esse campo.':'',
+  summary.missingTypes?num(summary.missingTypes)+' parcela(s) sem tipo de fatura informado pelo sistema. O gráfico usa centro de custo como classificação alternativa quando nenhum tipo está disponível.':'',
   summary.missingResidual?num(summary.missingResidual)+' parcela(s) sem saldo residual informado. Valores ausentes não são considerados zero.':''
  ].filter(Boolean);
  const ref=state.recvRef||'E',source=state.recvSource==='live'?'DSS':state.recvSource==='unavailable'?'Consulta indisponível':'Demonstração';
@@ -183,10 +183,10 @@ export function renderReceivables(rows,state){
  '<section class="mgmt-alerts recv-coverage"><h3>CONFERÊNCIA DOS CAMPOS DEVOLVIDOS PELO DSS</h3>'+
  '<p>Estas contagens descrevem os registros carregados, não comprovam pagamentos. Para conferir pagamentos, consulte também a referência <strong>Pagamento (P)</strong>, que retorna apenas as parcelas pagas no período de pagamento.</p>'+
  '<div class="recv-coverage-grid">'+
- '<div><strong>valorPagamento</strong><span>'+num(summary.paymentFieldCoverage.positive)+' positivos · '+num(summary.paymentFieldCoverage.zero)+' zeros · '+num(summary.paymentFieldCoverage.missing)+' ausentes</span></div>'+
- '<div><strong>valorResidual</strong><span>'+num(summary.residualFieldCoverage.positive)+' positivos · '+num(summary.residualFieldCoverage.zero)+' zeros · '+num(summary.residualFieldCoverage.missing)+' ausentes</span></div>'+
- '<div><strong>tipoFatura</strong><span>'+num(summary.count-summary.missingTypes)+' preenchidos · '+num(summary.missingTypes)+' ausentes</span></div></div>'+
- '<p>O gráfico de saldo não mede pagamentos: para isso é usado exclusivamente <code>valorPagamento</code>. Se os campos vierem zerados ou ausentes, é necessário confirmar a resposta original do DSS.</p></section>'+
+ '<div><strong>Valor do pagamento</strong><span>'+num(summary.paymentFieldCoverage.positive)+' positivos · '+num(summary.paymentFieldCoverage.zero)+' zeros · '+num(summary.paymentFieldCoverage.missing)+' ausentes</span></div>'+
+ '<div><strong>Saldo pendente</strong><span>'+num(summary.residualFieldCoverage.positive)+' positivos · '+num(summary.residualFieldCoverage.zero)+' zeros · '+num(summary.residualFieldCoverage.missing)+' ausentes</span></div>'+
+ '<div><strong>Tipo de fatura</strong><span>'+num(summary.count-summary.missingTypes)+' preenchidos · '+num(summary.missingTypes)+' ausentes</span></div></div>'+
+ '<p>O saldo pendente e o valor já pago são informações diferentes e aparecem em gráficos separados. Se os campos vierem zerados ou ausentes, é necessário confirmar a resposta original do DSS.</p></section>'+
  agingTable(summary.aging)+
  '<p class="ins-hint">Aviso: vencidas com saldo usa data de vencimento e valor residual confirmado na API. Valores nominais não são somados como pagamentos nem como saldo. Para interpretar inconsistências, consulte o DSS. Não significa inadimplência confirmada.</p>'+
  '<div class="ins-responsive-table recv-table"><table><thead><tr>'+colsHtml+'</tr></thead><tbody>'+

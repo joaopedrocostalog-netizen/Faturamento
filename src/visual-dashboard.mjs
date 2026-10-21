@@ -40,7 +40,8 @@ export function renderHero(view,d,{from,to,mode,financeiro}){
   relatorios:['RELATÓRIOS FINANCEIROS','Exportação de pedidos, CT-e e clientes'],
   comparativos:['COMPARATIVOS','Evolução diária, semanal e mensal dos indicadores'],
   faturamento:['FATURAMENTO','Acompanhamento dos pedidos de frete e suas faturas'],
-  documentos:['DOCUMENTOS ELETRÔNICOS / NFS-e','Notas fiscais de serviço, valores, ISS e faturas'],
+  documentos:['NOTAS FISCAIS','Notas de serviço, valores, ISS e faturas'],
+  conciliacao:['CONFERÊNCIA DE DOCUMENTOS','Confira pedidos de frete, faturas e notas fiscais em um só lugar'],
   receber:['CONTAS A RECEBER','Parcelas, vencimentos, pagamentos, saldos residuais e parceiros'],
   clientes:['CLIENTES & FRETES','Valores e distribuição por cliente'],
   analises:['ANÁLISES FINANCEIRAS','Tendências mensais e valores de pedidos']
