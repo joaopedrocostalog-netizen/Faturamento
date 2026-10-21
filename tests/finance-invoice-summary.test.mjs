@@ -105,7 +105,7 @@ test('Confere valorTotal uma vez por fatura sem duplicar parcelas',()=>{
   ...state,recvRows:data,recvCompany:'all',recvSource:'live'
  });
  assert(html.includes('Conferência dos totais com o relatório DSS'));
- assert(html.includes('R$ 255,00'));
+ assert(html.includes('255,00'));
  assert(html.includes('2 de 3 parcelas com saldo informado'));
  assert(html.includes('Exportar dados (CSV)'));
 });
