@@ -54,7 +54,7 @@ test('Exportação respeita filtro de empresa, pesquisa e não limita a 25 linha
  assert(report.columns.some(x=>x[0]==='linhaDigitavel'));
  assert.equal(report.rows[0].valor,55);
  const custom=receivablesReport(rows,{...opts,recvCompany:'CRC COSTA',recvSearch:'Cliente'});
- assert.equal(custom.count,28);
+ assert.equal(custom.count,27); // Busca exclui registro sem a palavra Cliente.
  assert(custom.rows.every(x=>x.empresa==='CRC COSTA'));
  const printable=receivablesReport(rows,opts,{compact:true});
  assert(printable.columns.length<report.columns.length);
