@@ -23,7 +23,7 @@ test('Somente financeiros e administradores acessam',()=>{
 });
 test('Resumo e comparativo exibem dados financeiros, sem indicadores de frota',()=>{
  const home=renderFinanceDashboard(empty,state),comparison=renderFinanceComparison(empty,state);
- for(const phrase of ['RESUMO DE FATURAMENTO','LIBERADOS SEM FATURA','TICKET MÉDIO'])assert(home.includes(phrase));
+ for(const phrase of ['RESUMO DE FATURAS','FATURAS IDENTIFICADAS','SALDO A RECEBER'])assert(home.includes(phrase));
  assert(comparison.includes('COMPARATIVO DE FATURAMENTO'));
  assert(!home.includes('data-nav="relatorios"'));
  assert(!home.includes('EXPORTAR RELATÓRIOS'));

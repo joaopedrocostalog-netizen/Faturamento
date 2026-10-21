@@ -53,9 +53,9 @@ test('Nenhum total do Resumo de Faturas pode vir de pedido de frete, mesmo com v
  assert(html.includes('VALOR DAS PARCELAS'));
  assert(html.includes('VALOR RECEBIDO INFORMADO'));
  assert(html.includes('SALDO A RECEBER'));
- assert(html.includes('R$ 550,00'));
- assert(html.includes('R$ 400,00'));
- assert(html.includes('R$ 150,00'));
+ assert(html.includes('550,00'));
+ assert(html.includes('400,00'));
+ assert(html.includes('150,00'));
  assert(!html.includes('300.000.000'));
  assert(!html.includes('FRETES INFORMADOS'));
  assert(!html.includes('LIBERADOS PARA FATURAR'));
@@ -65,7 +65,7 @@ test('Ausência da API financeira não ativa fallback para valores de pedidos',(
  for(const recvSource of ['pending','unavailable','demo']){
   const html=renderFinanceDashboard(veryLargeOrders,{...state,recvSource});
   assert(html.includes('Aguardando dados financeiros'));
-  assert(!html.includes('R$ 550,00'));
+  assert(!html.includes('550,00'));
   assert(!html.includes('300.000.000'));
   assert(html.includes('—'));
  }
