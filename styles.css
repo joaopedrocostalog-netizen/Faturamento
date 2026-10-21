@@ -652,3 +652,7 @@ body{background:#08090b;color:#f6f7f8}
 .finance-audit-grid span{color:#a9acb7;font-size:11px;line-height:1.4}
 .finance-audit .finance-audit-warning{color:#f6cca6}
 @media(max-width:900px){.finance-audit-grid{grid-template-columns:1fr}}
+
+/* Realçar lançamentos financeiros sem fatura e hipóteses de perímetro. */
+.finance-scope-caution{padding:12px 15px;margin:14px 0;border:1px solid #6a4b35;border-left:3px solid #e59b53;border-radius:9px;background:#29241f;color:#ebd6be;font-size:12px;line-height:1.65}
+.finance-scope-caution strong{color:#fff}

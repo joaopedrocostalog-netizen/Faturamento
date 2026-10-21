@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {invoiceSummary,invoiceDistributionByCompany} from '../src/invoice-summary.mjs';
+import {invoiceSummary,invoiceDistributionByCompany,invoicePerimeterComparison} from '../src/invoice-summary.mjs';
 import {normalizeReceivables} from '../src/receivables.mjs';
 import {renderFinanceDashboard} from '../src/financial-ui.mjs';
 import {renderCompanyFilter} from '../src/receivables-ui.mjs';
@@ -50,9 +50,9 @@ test('Nenhum total do Resumo de Faturas pode vir de pedido de frete, mesmo com v
  assert(html.includes('RESUMO DE FATURAS'));
  assert(html.includes('FATURAS IDENTIFICADAS'));
  assert(html.includes('PARCELAS REGISTRADAS'));
- assert(html.includes('VALOR DAS PARCELAS'));
- assert(html.includes('VALOR RECEBIDO INFORMADO'));
- assert(html.includes('SALDO A RECEBER'));
+ assert(html.includes('VALOR DAS PARCELAS COM FATURA'));
+ assert(html.includes('RECEBIDO EM FATURAS IDENTIFICADAS'));
+ assert(html.includes('SALDO DE FATURAS IDENTIFICADAS'));
  assert(html.includes('550,00'));
  assert(html.includes('400,00'));
  assert(html.includes('150,00'));
@@ -126,4 +126,42 @@ test('Inconsistência em valorTotal deve ser sinalizada e não contada arbitrari
  assert.equal(m.totalAudit.reportedTotalWithoutInvoice,1);
  assert.equal(m.totalAudit.reportedTotalInvoicesNotCounted,3);
  assert.equal(m.invoicesWithoutNumber,1);
+});
+
+test('Totais financeiros de faturas identificadas não incluem lançamentos sem fatura',()=>{
+ const m=invoiceSummary(rows,{today:'2026-10-21'});
+ assert.equal(m.referenceAudit.identified.count,4);
+ assert.equal(m.referenceAudit.unidentified.count,1);
+ assert.equal(m.referenceAudit.identified.face,1400);
+ assert.equal(m.referenceAudit.unidentified.face,50);
+ assert.equal(m.referenceAudit.identified.residual,1000);
+ assert.equal(m.referenceAudit.unidentified.residual,50);
+ assert.equal(m.referenceAudit.identified.paid,400);
+ const html=renderFinanceDashboard(veryLargeOrders,state);
+ assert(html.includes('VALOR DAS PARCELAS COM FATURA'));
+ assert(html.includes('SALDO DE FATURAS IDENTIFICADAS'));
+ assert(html.includes('400,00'));
+ assert(html.includes('500,00'));
+ assert(html.includes('100,00'));
+ assert(html.includes('Lançamentos sem número de fatura:'));
+ assert(html.includes('Separadas dos totais de faturas'));
+});
+test('Comparação de três empresas mantém COMEX separada sem apagar dados',()=>{
+ const three=normalizeReceivables({status:200,registros:[
+ {empresa:'A.C DA COSTA DELIBERALI',fatura:'A',parcela:'1/1',valor:100,valorResidual:100},
+ {empresa:'COMEX COSTA LOG',fatura:'B',parcela:'1/1',valor:200,valorResidual:200},
+ {empresa:'CRC COSTA',fatura:'C',parcela:'1/1',valor:300,valorResidual:300},
+ {empresa:'IDEALLOG',fatura:'D',parcela:'1/1',valor:400,valorResidual:400}
+ ]});
+ const c=invoicePerimeterComparison(three);
+ assert.equal(c.all.invoices,4);
+ assert.equal(c.withoutComex.invoices,3);
+ assert.equal(c.all.referenceAudit.identified.face,1000);
+ assert.equal(c.withoutComex.referenceAudit.identified.face,800);
+ assert.equal(c.withoutComex.referenceAudit.identified.residual,800);
+ const html=renderFinanceDashboard([], {...state,recvRows:three,recvCompany:'all'});
+ assert(html.includes('Comparar empresas incluídas no relatório'));
+ assert(html.includes('Hipótese a conferir'));
+ assert(html.includes('3 faturas'));
+ assert(html.includes('4 faturas'));
 });

@@ -1,6 +1,6 @@
 /** COSTALOG Financeiro — apresenta somente indicadores e registros de faturamento. */
 import {buildInsights} from './operational.mjs';
-import {invoiceSummary} from './invoice-summary.mjs';
+import {invoiceSummary,invoicePerimeterComparison} from './invoice-summary.mjs';
 import {receivablesByCompany,overviewByCompany} from './companies.mjs';
 import {SHOW_FINANCE_ONLY_TABS} from './access-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -14,6 +14,10 @@ export function renderFinanceDashboard(_orders,state){
  const loaded=state.recvSource==='live'&&!state.recvLoading;
  const financial=loaded?invoiceSummary(receivablesByCompany(state.recvRows||[],state.recvCompany||'all')):null;
  const selected=state.recvCompany&&state.recvCompany!=='all'?state.recvCompany:'Todas as empresas';
+ const identified=financial?.referenceAudit?.identified;
+ const unnumbered=financial?.referenceAudit?.unidentified;
+ const perimeter=loaded&&(!state.recvCompany||state.recvCompany==='all')?
+   invoicePerimeterComparison(state.recvRows||[]):null;
  const reference=state.recvRef==='V'?'data de vencimento':state.recvRef==='P'?'data de pagamento (somente pagas)':'data de emissão';
  const numberOrDash=value=>financial?num(value):'—';
  const moneyOrDash=(amount,known)=>financial&&known?brl(amount):'—';
@@ -22,7 +26,7 @@ export function renderFinanceDashboard(_orders,state){
   'As faturas ainda não foram consultadas neste período. Clique em Sincronizar com DSS, junto às datas, para carregar as três referências.';
  return '<section class="ins-module finance-invoices"><div class="section-title"><h2>RESUMO DE FATURAS</h2>'+
  '<span>'+(loaded?'Fonte: Contas a Receber • DSS':'Aguardando dados financeiros')+'</span></div>'+
- '<p class="ins-hint">Resumo baseado exclusivamente nas faturas e parcelas do módulo Contas a Receber. Não inclui valores de pedidos de frete.</p>'+
+ '<p class="ins-hint">Resumo de parcelas do Contas a Receber. Os valores destacados pertencem somente a parcelas com número de fatura; lançamentos sem referência ficam separados para conferência.</p>'+
  (!loaded?'<div class="info-strip '+(state.recvSource==='unavailable'?'error':'')+'">'+esc(unavailable)+
  ' <button type="button" class="btn btn-sm" data-nav="receber">Consultar faturas</button></div>':'')+
  (loaded?'<div class="finance-source-note"><strong>Consulta:</strong> '+esc(selected)+
@@ -31,18 +35,35 @@ export function renderFinanceDashboard(_orders,state){
  '<div class="kpis">'+
  card('FATURAS IDENTIFICADAS',numberOrDash(financial?.invoices),'Números de fatura distintos, sem duplicar parcelas')+
  card('PARCELAS REGISTRADAS',numberOrDash(financial?.installments),'Quantidade de parcelas da consulta financeira')+
- card('VALOR DAS PARCELAS',moneyOrDash(financial?.face,financial?.faceKnown),'Soma dos valores das parcelas informadas; não é receita recebida')+
- card('VALOR RECEBIDO INFORMADO',moneyOrDash(financial?.paid,financial?.paidKnown),'Somente pagamentos preenchidos no Contas a Receber')+
- card('SALDO A RECEBER',moneyOrDash(financial?.residual,financial?.residualKnown),'Saldo residual informado nas parcelas')+
+ card('VALOR DAS PARCELAS COM FATURA',moneyOrDash(identified?.face,identified?.faceKnown),'Somente parcelas com número de fatura; não é receita recebida')+
+ card('RECEBIDO EM FATURAS IDENTIFICADAS',moneyOrDash(identified?.paid,identified?.paidKnown),'Pagamento informado em parcelas com número de fatura')+
+ card('SALDO DE FATURAS IDENTIFICADAS',moneyOrDash(identified?.residual,identified?.residualKnown),'Somente saldos de parcelas com número de fatura')+
  card('FATURAS COM SALDO',numberOrDash(financial?.invoicesWithConfirmedBalance),'Com alguma parcela de saldo residual positivo')+
  card('FATURAS COM VENCIMENTO PASSADO',numberOrDash(financial?.invoicesOverdue),
   financial&&financial.lateKnown?brl(financial.lateResidual)+' em parcelas vencidas com saldo':'Vencimentos com saldo residual confirmado')+
  card('FATURAS MARCADAS COMO PAGAS',numberOrDash(financial?.paidInvoices),'Todas as parcelas da fatura marcadas como pagas')+
- (financial?.invoicesWithoutNumber?card('PARCELAS SEM NÚMERO DE FATURA',num(financial.invoicesWithoutNumber),'Registros sem referência para identificar a fatura'):'')+
+ (financial?.invoicesWithoutNumber?card('PARCELAS SEM NÚMERO DE FATURA',num(financial.invoicesWithoutNumber),
+  'Separadas dos totais de faturas até identificar a referência'):'')+
  '</div>'+
  (financial&&((financial.faceKnown<financial.installments)||(financial.paidKnown<financial.installments)||(financial.residualKnown<financial.installments))?
-  '<p class="finance-source-warning">Algumas parcelas não trazem todos os valores. As somas consideram somente campos preenchidos: '+num(financial.faceKnown)+' valores de parcelas, '+
+  '<p class="finance-source-warning">Algumas parcelas não trazem todos os valores. As somas consideram somente campos preenchidos, e o destaque financeiro exige número de fatura: '+num(financial.faceKnown)+' valores de parcelas, '+
   num(financial.paidKnown)+' pagamentos e '+num(financial.residualKnown)+' saldos residuais. Dados ausentes não foram estimados.</p>':'')+
+ (unnumbered&&unnumbered.count?'<div class="finance-scope-caution"><strong>Lançamentos sem número de fatura:</strong> '+num(unnumbered.count)+
+ ' parcela(s). Valor informado: '+(unnumbered.faceKnown?brl(unnumbered.face):'—')+
+ ' · Saldo informado: '+(unnumbered.residualKnown?brl(unnumbered.residual):'—')+
+ '. Esses valores continuam visíveis em Contas a Receber, mas não são atribuídos a faturas identificadas.</div>':'')+
+ (perimeter?'<details class="finance-audit" open><summary>Comparar empresas incluídas no relatório</summary>'+
+ '<p><strong>Hipótese a conferir:</strong> o relatório externo pode não incluir a COMEX COSTA LOG. O filtro padrão continua exibindo as quatro empresas; esta comparação não exclui documentos nem altera dados.</p>'+
+ '<div class="finance-audit-grid">'+
+ '<div><small>Todas as 4 empresas</small><strong>'+num(perimeter.all.invoices)+' faturas</strong>'+
+ '<span>Valor com fatura: '+(perimeter.all.referenceAudit.identified.faceKnown?brl(perimeter.all.referenceAudit.identified.face):'—')+
+ ' · Saldo com fatura: '+(perimeter.all.referenceAudit.identified.residualKnown?brl(perimeter.all.referenceAudit.identified.residual):'—')+'</span></div>'+
+ '<div><small>A.C DA COSTA DELIBERALI + CRC COSTA + IDEALLOG</small><strong>'+num(perimeter.withoutComex.invoices)+' faturas</strong>'+
+ '<span>Valor com fatura: '+(perimeter.withoutComex.referenceAudit.identified.faceKnown?brl(perimeter.withoutComex.referenceAudit.identified.face):'—')+
+ ' · Saldo com fatura: '+(perimeter.withoutComex.referenceAudit.identified.residualKnown?brl(perimeter.withoutComex.referenceAudit.identified.residual):'—')+'</span></div>'+
+ '<div><small>Empresa separada: COMEX COSTA LOG</small><strong>'+num(perimeter.all.invoices-perimeter.withoutComex.invoices)+' faturas</strong>'+
+ '<span>Valores e situações da COMEX continuam disponíveis no seu filtro de empresa.</span></div></div>'+
+ '<p>Mesmo que a quantidade de faturas coincida, compare os números individualmente. Contas a Receber não é necessariamente o cadastro completo de faturas emitidas.</p></details>':'')+
  (financial?'<details class="finance-audit" open><summary>Conferência dos totais com o relatório DSS</summary>'+
  '<p>O total principal soma o valor das parcelas. O DSS também fornece um campo de total, que pode aparecer repetido quando uma fatura tem várias parcelas. Abaixo ele é contado apenas uma vez por fatura quando seus registros são consistentes. <strong>Este valor é comparativo, não um total fiscal validado.</strong></p>'+
  '<div class="finance-audit-grid">'+
