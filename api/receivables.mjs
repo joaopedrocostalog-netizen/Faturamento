@@ -9,7 +9,9 @@ export function summarizeOriginalReceivableFields(registros=[]){
   valorPagamento:['valorpagamento','valorpago','valorrecebido','valorbaixado','vlpagamento'],
   valorResidual:['valorresidual','saldoresidual','saldodevedor','saldoemaberto','valoremaberto','valorpendente'],
   valor:['valor','valorparcela','valordaparcela','valornominalparcela'],
-  tipoFatura:['tipofatura','tipodefatura','descricaotipofatura','tipofaturadescricao','tipodafatura']
+  tipoFatura:['tipofatura','tipodefatura','descricaotipofatura','tipofaturadescricao','tipodafatura'],
+  situacaoFatura:['situacaofatura','statusfatura','situacao'],
+  empresa:['empresa','razaosocialempresa']
  };
  const canon=k=>String(k).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/gi,'').toLowerCase();
  const output={total:registros.length};
