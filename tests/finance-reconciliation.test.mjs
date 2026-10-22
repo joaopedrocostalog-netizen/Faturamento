@@ -85,8 +85,8 @@ test('Filtros por placa só na aba de CT-e e fonte da lista é dataset completo'
  const access=readFileSync('src/access-ui.mjs','utf8'),server=readFileSync('api/server.mjs','utf8');
  assert(filters.includes("s.view==='ctes'?filter('filterPlate'"));
  assert(app.includes("const byPlate=state.view==='ctes'?state.vehicle:'';"));
- assert(app.includes("overviewByCompany(state.dataset,state.recvCompany||'all')"));
- assert(app.includes('renderReconciliation(state.dataset.pedidos,state.docsRows,state.recvRows,state)'));
+ assert(app.includes("scopeOverview(state.dataset,state.brand)"));
+ assert(app.includes('renderReconciliation(d.pedidos,docs.rows,financialRows,scopedState)'));
  assert(access.includes("'conciliacao'"));
  assert(server.includes("'reconciliation.mjs','reconciliation-ui.mjs'"));
  assert(app.includes("state.view==='integracoes'||state.view==='comparativos'"));

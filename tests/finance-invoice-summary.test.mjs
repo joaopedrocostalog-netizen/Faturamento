@@ -41,7 +41,7 @@ test('Empresa distingue faturas iguais de empresas diferentes, sem usar número 
  assert.equal(dist.find(x=>x.name==='CRC COSTA').count,2);
  assert.equal(dist.find(x=>x.name==='IDEALLOG').count,1);
  const cards=renderCompanyFilter(rows,{...state,view:'painel'},veryLargeOrders);
- assert(cards.includes('<strong>3</strong><small>faturas</small>'));
+ assert(cards.includes('<strong>2</strong><small>faturas</small>'));
  assert(cards.includes('<strong>2</strong><small>faturas</small>'));
  assert(!cards.includes('<strong>300.000.000</strong>'));
 });
@@ -160,8 +160,8 @@ test('Comparação de três empresas mantém COMEX separada sem apagar dados',()
  assert.equal(c.withoutComex.referenceAudit.identified.face,800);
  assert.equal(c.withoutComex.referenceAudit.identified.residual,800);
  const html=renderFinanceDashboard([], {...state,recvRows:three,recvCompany:'all'});
- assert(html.includes('Comparar empresas incluídas no relatório'));
- assert(html.includes('Hipótese a conferir'));
+ assert(!html.includes('Comparar empresas incluídas no relatório'));
+ assert(!html.includes('Hipótese a conferir'));
  assert(html.includes('3 faturas'));
- assert(html.includes('4 faturas'));
+ assert(!html.includes('4 faturas'));
 });

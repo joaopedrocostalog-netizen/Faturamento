@@ -115,5 +115,5 @@ test('Render serve módulos importados, protege Contas a Receber e conserva a sa
  assert(app.includes('state.recvReferenceCache=receivables;'));
  assert(app.includes('referenceSelection(state.recvReferenceCache,state.recvRef)'));
  assert(!app.includes("if(action==='recv-consult'"));
- assert(app.includes('renderReceivables(state.recvRows,state)'));
+ assert(app.includes('renderReceivables(financialRows,scopedState)'));
 });

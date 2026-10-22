@@ -43,5 +43,5 @@ test('A tela gerencial está disponível para todos os perfis existentes no port
  assert(permittedView('administrador','gerencial'));
  const app=readFileSync('src/app.js','utf8');
  assert(app.includes("['gerencial','chart','Visão Gerencial']"));
- assert(app.includes('renderManagerialDashboard(state.docsRows,d.pedidos,state)'));
+ assert(app.includes('renderManagerialDashboard(docs.rows,d.pedidos,scopedState)'));
 });

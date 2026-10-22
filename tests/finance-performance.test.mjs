@@ -81,7 +81,7 @@ test('NFS-e reutiliza filtros/ordenação entre páginas, sem montar os outros r
 });
 test('Filtros avançados somente são construídos quando expandidos',()=>{
  const app=readFileSync('src/app.js','utf8');
- assert(app.includes("(state.extraFiltersOpen?operationalFilters(overviewByCompany(state.dataset,state.recvCompany||'all'),state):'')"));
+ assert(app.includes("(state.extraFiltersOpen?operationalFilters(scopeOverview(state.dataset,state.brand),state):'')"));
  assert(app.includes("state.extraFiltersOpen=!state.extraFiltersOpen"));
  assert(app.includes("const d=scoped(),stats=['viagens','mdfes'].includes(state.view)?totals(d):null"));
  assert(app.includes('clearTimeout(searchRenderTimer)'));

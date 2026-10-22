@@ -79,7 +79,7 @@ test('Endpoint HTTP permanece protegido e senha não aparece no bundle público'
  assert(!code.includes("DSS_NFSE_SYNC_TOKEN='"));
  const client=readFileSync('src/app.js','utf8');
  assert(client.includes("['documentos','doc','Notas fiscais']"));
- assert(client.includes("renderElectronicDocuments(state.docsRows,state)"));
+ assert(client.includes("renderElectronicDocuments(docs.rows,scopedState)"));
  assert(client.includes("synchronizeElectronicDocuments(token)"),'A consulta é acionada apenas após autorização explícita');
  assert(client.includes("if(input)input.value=''"),'O token é removido do campo após o envio');
  assert(client.includes("fetchAuthorizedDocuments({token,from,to})"),'O acesso real usa somente o proxy protegido');

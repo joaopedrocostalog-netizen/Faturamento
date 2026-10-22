@@ -61,5 +61,5 @@ test('A navegação do frontend é financeira',()=>{
  assert(nav.includes("['relatorios'"),'Código da aba de relatórios deve permanecer');
  for(const view of ['veiculos','motoristas','rotas','viagens','mdfes','administracao','integracoes'])assert(!nav.includes("['"+view+"'"));
  assert(s.includes('GESTÃO DE FATURAMENTO'));
- assert(s.includes('logo-costalog-sem-fundo-1024x876.png'));
+ assert(s.includes('brand.logo'));
 });
