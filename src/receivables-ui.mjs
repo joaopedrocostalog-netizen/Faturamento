@@ -2,6 +2,7 @@
 import {RECEIVABLE_FIELDS,RECEIVABLE_NUMBERS,RECEIVABLE_DATES,receivablesSummary} from './receivables.mjs';
 import {COSTALOG_COMPANIES,COMPANY_UNIDENTIFIED,COMPANY_ALL,receivablesByCompany,companyDistribution,operationalCompanyMetrics} from './companies.mjs';
 import {invoiceSummary,invoiceDistributionByCompany} from './invoice-summary.mjs';
+import {brandCompanies,validSelectedCompany,scopeOverview,scopeReceivables} from './brands.mjs';
 const h=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
 const brl=x=>Number.isFinite(x)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(x):'—';
 const num=x=>new Intl.NumberFormat('pt-BR').format(x);
@@ -83,7 +84,8 @@ function agingTable(rows){
 }
 const companyTitle=k=>k===COMPANY_UNIDENTIFIED?'Outras / não identificadas':k;
 export function renderCompanyFilter(rows,state,operations={}){
- const selected=state.recvCompany||COMPANY_ALL,view=state.view||'receber';
+ const selected=validSelectedCompany(state.brand,state.recvCompany),view=state.view||'receber';
+ const visibleCompanies=brandCompanies(state.brand);
  const isFinanceOverview=['painel','gerencial'].includes(view);
  const operationalView=['faturamento','ctes','clientes','conciliacao','comparativos','analises'].includes(view);
  const comparison=view==='comparativos';
@@ -91,16 +93,15 @@ export function renderCompanyFilter(rows,state,operations={}){
    state.recvSource==='live'&&!state.recvLoading:
    operationalView?(comparison?state.comparison?.source==='DSS':state.mode==='live'&&!state.docsLoading):
    false;
- const currentOperations=comparison&&state.comparison?.source==='DSS'?state.comparison.current:operations;
- const rowsToCount=state.recvSource==='live'?rows:[];
- const distribution=isFinanceOverview?invoiceDistributionByCompany(rowsToCount):
-   companyDistribution(rowsToCount);
- const operationalCounts=new Map(operationalView?operationalCompanyMetrics(currentOperations).map(x=>[x.name,x.pedidos]):[]);
+ const currentOperations=comparison&&state.comparison?.source==='DSS'?scopeOverview(state.comparison.current,state.brand):scopeOverview(operations,state.brand);
+ const rowsToCount=state.recvSource==='live'?scopeReceivables(rows,state.brand):[];
+ const distribution=(isFinanceOverview?invoiceDistributionByCompany(rowsToCount):companyDistribution(rowsToCount)).filter(x=>visibleCompanies.includes(x.name));
+ const operationalCounts=new Map(operationalView?operationalCompanyMetrics(currentOperations).filter(x=>visibleCompanies.includes(x.name)).map(x=>[x.name,x.pedidos]):[]);
  const countTotal=operationalView?[...operationalCounts.values()].reduce((a,b)=>a+b,0):
   isFinanceOverview?invoiceSummary(rowsToCount).invoices:rowsToCount.length;
  const unit=operationalView?'pedido':isFinanceOverview?'fatura':'parcela';
  const quantity=(name,count)=>operationalView?(operationalCounts.get(name)||0):count;
- const cards=[{name:COMPANY_ALL,count:countTotal},...distribution];
+ const cards=visibleCompanies.length===1?distribution:[{name:COMPANY_ALL,count:countTotal},...distribution];
  const unavailable=state.recvLoading&&!operationalView?'Consultando...':
   state.docsLoading&&operationalView?'Sincronizando...':
   state.recvSource==='unavailable'&&!operationalView?'Consulta indisponível':'Não consultado';
@@ -108,7 +109,7 @@ export function renderCompanyFilter(rows,state,operations={}){
   ' no período. As quantidades não representam valores recebidos.':
   'As quantidades aparecem após a consulta; “—” não significa que a empresa tenha zero registros.';
  const card=({name,count})=>{
-  const current=selected===name,amount=name===COMPANY_ALL?count:quantity(name,count);
+  const current=selected===name||(visibleCompanies.length===1&&selected===COMPANY_ALL),amount=name===COMPANY_ALL?count:quantity(name,count);
   const shown=ready?num(amount):'—',caption=ready?unit+(amount===1?'':'s'):unavailable;
   return '<button type="button" class="recv-company-tile'+(current?' active':'')+
    '" data-company-select="'+h(name)+'" aria-pressed="'+(current?'true':'false')+
@@ -119,17 +120,17 @@ export function renderCompanyFilter(rows,state,operations={}){
  return '<section class="recv-enterprises" aria-label="Escolher empresa">'+
   '<div class="recv-enterprise-toolbar">'+
   '<div class="recv-enterprise-heading"><span class="recv-enterprise-eyebrow">VISUALIZAÇÃO POR EMPRESA</span>'+
-  '<h3>Empresas do grupo</h3><p>'+h(hint)+'</p></div>'+
+  '<h3>'+(state.brand==='ideallog'?'Empresa IDEALLOG':'Empresas COSTALOG')+'</h3><p>'+h(hint)+'</p></div>'+
   '<label class="recv-company-select-label" for="recvCompany">Filtrar por empresa<select class="control" id="recvCompany">'+
-  '<option value="all" '+(selected===COMPANY_ALL?'selected':'')+'>Todas as empresas</option>'+
-  COSTALOG_COMPANIES.map(k=>'<option value="'+h(k)+'" '+(selected===k?'selected':'')+'>'+h(k)+'</option>').join('')+
-  '<option value="unidentified" '+(selected===COMPANY_UNIDENTIFIED?'selected':'')+'>Outras / não identificadas</option></select></label></div>'+
+  (visibleCompanies.length===1?'':'<option value="all" '+(selected===COMPANY_ALL?'selected':'')+'>Todas as empresas</option>')+
+  visibleCompanies.map(k=>'<option value="'+h(k)+'" '+((selected===k||(visibleCompanies.length===1&&selected===COMPANY_ALL))?'selected':'')+'>'+h(k)+'</option>').join('')+
+  '</select></label></div>'+
   '<div class="recv-company-summaries">'+cards.map(card).join('')+'</div>'+
-  (ready&&view==='receber'&&distribution.at(-1)?.count?'<p class="recv-company-note">Registros sem empresa identificada ficam separados para não misturar informações.</p>':'')+
+  
   '</section>';
 }
-function companyBreakdown(rows){
- const groups=companyDistribution(rows);
+function companyBreakdown(rows,state){
+ const groups=companyDistribution(rows).filter(x=>brandCompanies(state.brand).includes(x.name));
  return '<section class="mgmt-alerts"><h3>RESUMO FINANCEIRO POR EMPRESA</h3>'+
  '<p>Grupos independentes definidos pelo campo empresa. Pagamentos, valores nominais e saldos são indicadores separados.</p>'+
  '<div class="recv-company-breakdown">'+groups.map(({name,count})=>{
@@ -183,7 +184,7 @@ export function renderReceivables(rows,state){
  '<p class="ins-hint">A sincronização geral do DSS também carrega Contas a Receber nas três referências. Aqui você pode alternar entre os dados já consultados, sem informar o token novamente.</p>'+
  '<p class="ins-hint">Referência escolhida: '+h(GROUPS[ref][0].toLowerCase())+'. Pagamento (P) inclui somente parcelas pagas cuja data de pagamento está no período; as três referências não são somadas entre si.</p>'+
  warnings+
- (state.recvCompany==='all'||!state.recvCompany?companyBreakdown(rows):'')+
+ (state.recvCompany==='all'||!state.recvCompany?companyBreakdown(rows,state):'')+
  '<div class="recv-toolbar"><label>Referência do período<select class="control" id="recvRef"><option value="E" '+(ref==='E'?'selected':'')+'>Emissão (E)</option><option value="V" '+(ref==='V'?'selected':'')+'>Vencimento (V)</option><option value="P" '+(ref==='P'?'selected':'')+'>Pagamento (P)</option></select></label>'+
  
  '<label>Vencimentos e prioridades<select class="control" id="recvQuick">'+
@@ -212,7 +213,7 @@ export function renderReceivables(rows,state){
  (summary.missingTypes?card('TIPO DE FATURA AUSENTE',num(summary.missingTypes),'Informação não preenchida na API'):'')+
  '</div>'+
  '<div class="mgmt-chart-grid">'+
- (state.recvCompany==='all'||!state.recvCompany?barChart('Saldo residual por empresa (DSS)',companyDistribution(rows).map(({name,count})=>{
+ (state.recvCompany==='all'||!state.recvCompany?barChart('Saldo residual por empresa (DSS)',companyDistribution(rows).filter(x=>brandCompanies(state.brand).includes(x.name)).map(({name,count})=>{
   const x=receivablesSummary(receivablesByCompany(rows,name));
   return {name:companyTitle(name),count,value:x.residual,known:x.residualKnown,face:x.face,faceKnown:x.faceKnown,paid:x.paid,paidKnown:x.paidKnown};
  })): '')+

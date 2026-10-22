@@ -1,6 +1,7 @@
 /** COSTALOG Financeiro — apresenta somente indicadores e registros de faturamento. */
 import {buildInsights} from './operational.mjs';
-import {invoiceSummary,invoicePerimeterComparison} from './invoice-summary.mjs';
+import {invoiceSummary} from './invoice-summary.mjs';
+import {scopeOverview} from './brands.mjs';
 import {receivablesByCompany,overviewByCompany} from './companies.mjs';
 import {SHOW_FINANCE_ONLY_TABS} from './access-ui.mjs';
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -16,8 +17,6 @@ export function renderFinanceDashboard(_orders,state){
  const selected=state.recvCompany&&state.recvCompany!=='all'?state.recvCompany:'Todas as empresas';
  const identified=financial?.referenceAudit?.identified;
  const unnumbered=financial?.referenceAudit?.unidentified;
- const perimeter=loaded&&(!state.recvCompany||state.recvCompany==='all')?
-   invoicePerimeterComparison(state.recvRows||[]):null;
  const reference=state.recvRef==='V'?'data de vencimento':state.recvRef==='P'?'data de pagamento (somente pagas)':'data de emissão';
  const numberOrDash=value=>financial?num(value):'—';
  const moneyOrDash=(amount,known)=>financial&&known?brl(amount):'—';
@@ -52,18 +51,6 @@ export function renderFinanceDashboard(_orders,state){
  ' parcela(s). Valor informado: '+(unnumbered.faceKnown?brl(unnumbered.face):'—')+
  ' · Saldo informado: '+(unnumbered.residualKnown?brl(unnumbered.residual):'—')+
  '. Esses valores continuam visíveis em Contas a Receber, mas não são atribuídos a faturas identificadas.</div>':'')+
- (perimeter?'<details class="finance-audit" open><summary>Comparar empresas incluídas no relatório</summary>'+
- '<p><strong>Hipótese a conferir:</strong> o relatório externo pode não incluir a COMEX COSTA LOG. O filtro padrão continua exibindo as quatro empresas; esta comparação não exclui documentos nem altera dados.</p>'+
- '<div class="finance-audit-grid">'+
- '<div><small>Todas as 4 empresas</small><strong>'+num(perimeter.all.invoices)+' faturas</strong>'+
- '<span>Valor com fatura: '+(perimeter.all.referenceAudit.identified.faceKnown?brl(perimeter.all.referenceAudit.identified.face):'—')+
- ' · Saldo com fatura: '+(perimeter.all.referenceAudit.identified.residualKnown?brl(perimeter.all.referenceAudit.identified.residual):'—')+'</span></div>'+
- '<div><small>A.C DA COSTA DELIBERALI + CRC COSTA + IDEALLOG</small><strong>'+num(perimeter.withoutComex.invoices)+' faturas</strong>'+
- '<span>Valor com fatura: '+(perimeter.withoutComex.referenceAudit.identified.faceKnown?brl(perimeter.withoutComex.referenceAudit.identified.face):'—')+
- ' · Saldo com fatura: '+(perimeter.withoutComex.referenceAudit.identified.residualKnown?brl(perimeter.withoutComex.referenceAudit.identified.residual):'—')+'</span></div>'+
- '<div><small>Empresa separada: COMEX COSTA LOG</small><strong>'+num(perimeter.all.invoices-perimeter.withoutComex.invoices)+' faturas</strong>'+
- '<span>Valores e situações da COMEX continuam disponíveis no seu filtro de empresa.</span></div></div>'+
- '<p>Mesmo que a quantidade de faturas coincida, compare os números individualmente. Contas a Receber não é necessariamente o cadastro completo de faturas emitidas.</p></details>':'')+
  (financial?'<details class="finance-audit" open><summary>Conferência dos totais com o relatório DSS</summary>'+
  '<p>O total principal soma o valor das parcelas. O DSS também fornece um campo de total, que pode aparecer repetido quando uma fatura tem várias parcelas. Abaixo ele é contado apenas uma vez por fatura quando seus registros são consistentes. <strong>Este valor é comparativo, não um total fiscal validado.</strong></p>'+
  '<div class="finance-audit-grid">'+
@@ -104,7 +91,7 @@ export function renderFinanceComparison(data,state){
  // Comparativo independente: não herdar ou recalcular usando a sincronização global.
  const c=state.comparison;
  const ready=c&&c.currentRange?.from===current.from&&c.currentRange?.to===current.to&&c.previousRange?.from===previous.from&&c.previousRange?.to===previous.to;
- const left=ready?comparisons(overviewByCompany(c.current,state.recvCompany||'all')):[],right=ready?comparisons(overviewByCompany(c.previous,state.recvCompany||'all')):[];
+ const left=ready?comparisons(overviewByCompany(scopeOverview(c.current,state.brand),state.recvCompany||'all')):[],right=ready?comparisons(overviewByCompany(scopeOverview(c.previous,state.brand),state.recvCompany||'all')):[];
  const lines=left.map((m,i)=>{
    const prev=right[i].value,delta=m.value===null||prev===null?null:m.value-prev;
    const percent=delta!==null&&prev!==0?delta/Math.abs(prev)*100:null;

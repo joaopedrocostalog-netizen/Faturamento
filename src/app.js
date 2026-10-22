@@ -17,6 +17,7 @@ import {loadReceivableReferences,referenceSelection} from './receivables-referen
 import {receivablesReport,receivablesCsv} from './receivables-report.mjs';
 import {renderReceivables,renderReceivablesTokenDialog,renderCompanyFilter} from './receivables-ui.mjs';
 import {overviewByCompany} from './companies.mjs';
+import {brandConfig,validBrand,validSelectedCompany,scopeOverview,scopeReceivables,scopeDocuments} from './brands.mjs';
 import {renderReconciliation} from './reconciliation-ui.mjs';
 import {normalizeElectronicDocuments,demoElectronicDocuments} from './e-documents.mjs';
 import {renderElectronicDocuments,renderDocumentsSyncDialog,docsCsv} from './e-documents-ui.mjs';
@@ -140,6 +141,7 @@ async function demoChangeOwnPassword(currentPassword,newPassword){
 }
 
 const state = {
+ brand:'costalog',
   compareCustom:true,compareCurrentFrom:String(year)+'-10-01',compareCurrentTo:localToday(),comparePreviousFrom:String(year)+'-09-01',comparePreviousTo:String(year)+'-09-30',view:'painel', chartInterval:'mensal', compareInterval:'mensal',compareAnchor:new Date().toISOString().slice(0,10), from:String(year)+'-01-01',to:localToday(),search:'',filter:'todos',page:1,
  dataset:demo, mode:'demo',error:'',loading:false,selected:null,connect:false,menu:false,
  docsRows:normalizeElectronicDocuments({status:200,registros:demoElectronicDocuments}),docsSource:'demo',docsError:'',docsLoading:false,docsUpdatedAt:'',docsSyncOpen:false,
@@ -201,12 +203,12 @@ function normalizePayload(raw){return normalizeOverview(raw);}
 function inRange(v){return !v||((!state.from||v>=state.from)&&(!state.to||v<=state.to));}
 let scopedCache=null;
 function scoped(){
- const d=state.dataset;
+ const d=scopeOverview(state.dataset,state.brand);
  // Placa e tipo de serviço são filtros exclusivamente operacionais.
  const byClient=['faturamento','ctes','clientes'].includes(state.view)?state.customer:'';
  const byPlate=state.view==='ctes'?state.vehicle:'';
  const byService=['faturamento','ctes'].includes(state.view)?state.serviceType:'';
- const cacheKey=[state.from,state.to,byClient,byPlate,byService,state.recvCompany||'all'].join('|');
+ const cacheKey=[state.brand,state.from,state.to,byClient,byPlate,byService,state.recvCompany||'all'].join('|');
  if(scopedCache&&scopedCache.dataset===d&&scopedCache.key===cacheKey)return scopedCache.value;
  const matches=r=>(!byClient||r.cliente===byClient)&&(!byPlate||r.placa===byPlate);
  let viagens=d.viagens.filter(v=>inRange(v.data)&&matches(v));
@@ -236,7 +238,11 @@ const navItems=[['painel','home','Painel'],['faturamento','doc','Faturamento'],[
 const tabs=[['painel','Painel'],['viagens','Viagens'],['ctes','Pedidos / CT-e'],['entregas','Entregas'],['pendencias','Pendências'],['rotas','Rotas'],['veiculos','Frota'],['motoristas','Motoristas'],['ocorrencias','Ocorrências'],['mdfes','MDF-e'],['relatorios','Relatórios'],['faturamento','Faturamento'],['clientes','Clientes'],['analises','Análises financeiras'],['administracao','Administração'],['integracoes','Integração']];
 function button(action,label,extra){return '<button type="button" class="btn '+(extra||'')+'" data-action="'+action+'">'+label+'</button>';}
 function render(){
+ state.brand=validBrand(state.brand);
+ state.recvCompany=validSelectedCompany(state.brand,state.recvCompany);
  state.view=safeView(state.role,state.view);
+ const brand=brandConfig(state.brand),receivableRows=scopeReceivables(state.recvRows,state.brand);
+ const brandOperational=scopeOverview(state.dataset,state.brand);
  const docsLive=state.mode==='live'&&state.docsSource==='live';
  const recvLive=state.view==='receber'&&state.recvSource==='live';
  // Os totais operacionais profundos eram calculados até em tabelas que não os utilizam.
@@ -256,24 +262,25 @@ function render(){
   :'<div class="info-strip v-demo-notice"><strong>DEMONSTRAÇÃO</strong> · Dados fictícios. Para sincronizar o site, use o botão vermelho ao lado das datas.</div>';
  const usesAdvancedFilters=['faturamento','ctes','clientes'].includes(state.view);
  const detailedFilters=usesAdvancedFilters?'<details class="v-extra-filters" '+(state.extraFiltersOpen?'open':'')+'><summary data-action="toggle-advanced-filters">Mais filtros <span>'+(state.view==='ctes'?'Cliente, placa e serviço':state.view==='clientes'?'Cliente':'Cliente e serviço')+'</span></summary>'+
- (state.extraFiltersOpen?operationalFilters(overviewByCompany(state.dataset,state.recvCompany||'all'),state):'')+'</details>':'';
+ (state.extraFiltersOpen?operationalFilters(overviewByCompany(brandOperational,state.recvCompany||'all'),state):'')+'</details>':'';
  const tools=['ctes','relatorios','faturamento','clientes'].includes(state.view)?
   '<div class="v-heading-tools">'+button('csv',icon('download')+' CSV','btn-sm')+button('print','PDF / Imprimir','btn-sm btn-red')+'</div>':'';
  const dateFilters=state.view==='acesso'?'':renderFilters();
  const globalSearch='';
- root.innerHTML='<div class="layout v-app"><main class="main v-main">'+
- '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="./logo-costalog-sem-fundo-1024x876.png" alt="Logotipo COSTALOG"><div><b>COSTALOG</b><small>A LOGÍSTICA IDEAL</small></div><i></i><strong>GESTÃO DE FATURAMENTO</strong></div>'+
- '<div class="topbar-right v-accountbar"><span class="v-environment '+(state.mode==='live'||docsLive||recvLive?'connected':'')+'">'+(recvLive?'● DSS RECEBÍVEIS':docsLive?'● DSS NFS-e':state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
+ if(typeof document!=='undefined')document.title=brand.name+' | Faturamento';
+ root.innerHTML='<div class="layout v-app v-brand-'+brand.id+'"><main class="main v-main">'+
+ '<header class="topbar v-topbar"><div class="v-topbrand"><img class="v-brand-logo" src="'+brand.logo+'" alt="Logotipo '+brand.name+'"><div><b>'+brand.name+'</b><small>'+brand.subtitle+'</small></div><i></i><strong>GESTÃO DE FATURAMENTO</strong></div>'+
+ '<div class="topbar-right v-accountbar"><button type="button" class="v-brand-switch" data-brand-switch aria-label="Trocar para '+(state.brand==='costalog'?'IDEALLOG':'COSTALOG')+'">'+(state.brand==='costalog'?'Ir para IDEALLOG':'Ir para COSTALOG')+' <span aria-hidden="true">⇄</span></button><span class="v-environment '+(state.mode==='live'||docsLive||recvLive?'connected':'')+'">'+(recvLive?'● DSS RECEBÍVEIS':docsLive?'● DSS NFS-e':state.mode==='live'?'● DSS':'● DEMO')+'</span>'+
  '<span class="v-username">ACESSO LIVRE</span></div></header>'+
  '<div class="v-menu-row"><nav class="v-main-nav" aria-label="Seções principais">'+primary+'</nav><div class="v-right-hint">'+(state.mode==='live'?'DADOS DSS':'DADOS DE TESTE')+'</div></div>'+
  (sub?'<nav class="v-sub-nav" aria-label="Outras áreas">'+sub+'</nav>':'')+
- '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:docsLive?'live':state.mode,financeiro:state.permissions.financeiro})+
+ '<div class="content v-content">'+renderHero(state.view,d,{from:state.from,to:state.to,mode:docsLive?'live':state.mode,financeiro:state.permissions.financeiro,brand:state.brand})+
  '<div class="v-tools-row">'+dateFilters+tools+'</div>'+renderSearchBar()+globalSearch+detailedFilters+message+
- (['painel','faturamento','ctes','clientes','conciliacao','gerencial','receber','comparativos','analises'].includes(state.view)?renderCompanyFilter(state.recvRows,state,state.dataset):'')+
+ (['painel','faturamento','ctes','clientes','conciliacao','gerencial','receber','comparativos','analises'].includes(state.view)?renderCompanyFilter(receivableRows,state,brandOperational):'')+
  (state.syncError?'<div class="info-strip error"><strong>Sincronização:</strong> '+esc(state.syncError)+'</div>':'')+
  (state.loading?'<div class="info-strip">Consultando registros DSS...</div>':'')+
  renderView(d,stats)+
- '<footer class="v-footer">COSTALOG • Portal de faturamento • '+(docsLive?'NFS-e: registros DSS consultados com token privado • Demais abas: demonstração.':PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
+ '<footer class="v-footer">'+brand.name+' • Portal de faturamento • '+(docsLive?'NFS-e: registros DSS consultados com token privado • Demais abas: demonstração.':PUBLIC_DEMO?'Acesso livre • dados de demonstração (não são valores reais da DSS).':'DSS configurada no servidor.')+'</footer></div></main></div>'+
  (state.selected?renderDrawer(d):'')+
  (state.docsSyncOpen?renderDocumentsSyncDialog(state):'')+
  (state.comparisonSyncOpen?renderComparisonSyncDialog(state):'')+
@@ -308,23 +315,27 @@ function renderOcorrencias(d){
 }
 function renderView(d,s){
  if(state.view==='acesso')state.view='painel';
- if(state.view==='painel')return renderFinanceDashboard(d,state);
- if(state.view==='comparativos')return renderFinanceComparison(d,state);
- if(state.view==='documentos')return renderElectronicDocuments(state.docsRows,state);
- if(state.view==='gerencial')return renderManagerialDashboard(state.docsRows,d.pedidos,state);
- if(state.view==='receber')return renderReceivables(state.recvRows,state);
- if(state.view==='conciliacao')return renderReconciliation(state.dataset.pedidos,state.docsRows,state.recvRows,state);
+ const financialRows=scopeReceivables(state.recvRows,state.brand);
+ const docs=scopeDocuments(state.docsRows,state.dataset,state.recvRows,state.brand,state.recvCompany);
+ const scopedState={...state,recvRows:financialRows,docsRows:docs.rows,docsUnassigned:docs.unassigned};
+ if(state.view==='painel')return renderFinanceDashboard(d,scopedState);
+ if(state.view==='comparativos')return renderFinanceComparison(d,scopedState);
+ if(state.view==='documentos')return (docs.unassigned&&state.docsSource==='live'?'<div class="info-strip">Algumas notas fiscais não possuem referência confiável de empresa no DSS e não são exibidas neste ambiente. Confira seus vínculos em Faturas e Pedidos.</div>':'')+
+   renderElectronicDocuments(docs.rows,scopedState);
+ if(state.view==='gerencial')return renderManagerialDashboard(docs.rows,d.pedidos,scopedState);
+ if(state.view==='receber')return renderReceivables(financialRows,scopedState);
+ if(state.view==='conciliacao')return renderReconciliation(d.pedidos,docs.rows,financialRows,scopedState);
  if(state.view==='graficos')return renderCharts(d,{financeiro:state.permissions.financeiro,interval:state.chartInterval});
  if(state.view==='viagens')return renderTripsHeader(d)+renderViagens(d,s);
  if(state.view==='ctes')return renderCtes(d);
- if(state.view==='clientes')return renderCustomerProfiles(d,state);
+ if(state.view==='clientes')return renderCustomerProfiles(d,scopedState);
  if(state.view==='mdfes')return renderMdfes(d,s);
  if(state.view==='pendencias')return renderAlertsHub(d,state);
  if(state.view==='ocorrencias')return renderOcorrencias(d);
  if(state.view==='rotas'||state.view==='motoristas')return renderDriverRouteDetails(d,state,state.view);
- if(state.view==='relatorios')return renderReportHub(d,state);
+ if(state.view==='relatorios')return renderReportHub(d,scopedState);
  if(state.view==='administracao'&&state.permissions.admin)return renderUsersManagement(state.adminUsers,state.adminUsersLoading,state.adminUsersError)+(PUBLIC_DEMO?'<p class="help">Demonstração: contas e senhas ficam somente neste navegador. Sem dados reais.</p>':'<p class="help">Os dados DSS são consultados automaticamente após o login e ao alterar as datas. A configuração da API é feita somente no servidor.</p>');
- if(ADVANCED_VIEWS.includes(state.view))return renderAdvanced(state.view,d,state);
+ if(ADVANCED_VIEWS.includes(state.view))return renderAdvanced(state.view,d,scopedState);
  return renderIntegracoes();
 }
 function renderOperationalPanel(d){
@@ -824,14 +835,14 @@ function exportAdvanced(type,format){
   mdfes:searchRecords(raw.mdfes,state.search)};
  const allowed=reportTypesFor(state.role);if(!allowed.includes(type))throw Error('Acesso negado ao relatório.');
  const models=(full?allowed:[type]).map(t=>secureReport(extractRows(t,d),t,state.role));
- const suffix=(state.mode==='live'?'DSS':'DEMO')+'_'+state.from+'_'+state.to;
- if(format==='xlsx')downloadXlsx(models,{mode:state.mode,from:state.from,to:state.to},'COSTALOG_'+(full?'COMPLETO':type)+'_'+suffix+'.xlsx');
+ const suffix=state.brand+'_'+(state.mode==='live'?'DSS':'DEMO')+'_'+state.from+'_'+state.to;
+ if(format==='xlsx')downloadXlsx(models,{mode:state.mode,from:state.from,to:state.to},brandConfig(state.brand).name+'_'+(full?'COMPLETO':type)+'_'+suffix+'.xlsx');
  if(format==='pdf')printReport(models,{mode:state.mode,from:state.from,to:state.to});
  if(format==='csv'){
   const r=models[0],lines=[r.columns.map(x=>x[1]),...r.rows.map(row=>r.columns.map(c=>row[c[0]]??''))];
   const quote=x=>{let t=String(x??'');if(/^[=+@-]/.test(t)&&!/^-(\d+)(\.\d+)?$/.test(t))t="'"+t;return '"'+t.replace(/"/g,'""')+'"';};
   const csv='\uFEFF'+lines.map(x=>x.map(quote).join(';')).join('\r\n');
-  downloadFile(new TextEncoder().encode(csv),'COSTALOG_'+type+'_'+suffix+'.csv','text/csv;charset=utf-8');
+  downloadFile(new TextEncoder().encode(csv),brandConfig(state.brand).name+'_'+type+'_'+suffix+'.csv','text/csv;charset=utf-8');
  }
 }
 let refreshTimer=null;
@@ -940,9 +951,19 @@ root.addEventListener('click',e=>{
   }
   return;
  }
+ const brandButton=e.target.closest('[data-brand-switch]');
+ if(brandButton){
+  state.brand=state.brand==='costalog'?'ideallog':'costalog';
+  state.recvCompany='all';state.customer='';state.vehicle='';state.serviceType='';
+  state.search='';state.globalQuery='';state.recvSearch='';state.docsStatus='';state.docsModel='';
+  state.docsOperation='';state.docsSupport='';state.reconSearch='';state.reconStatus='todos';
+  state.page=1;state.recvPage=1;state.docsPage=1;state.reconPage=1;
+  state.clientSelected='';state.selected=null;state.routeSelected='';state.driverSelected='';
+  state.extraFiltersOpen=false;scopedCache=null;render();return;
+ }
  const companyButton=e.target.closest('[data-company-select]');
  if(companyButton){
-  state.recvCompany=companyButton.dataset.companySelect;
+  state.recvCompany=validSelectedCompany(state.brand,companyButton.dataset.companySelect);
   state.recvPage=1;state.reconPage=1;state.page=1;render();return;
  }
  const nav=e.target.closest('[data-nav]');if(nav){if(!permittedView(state.role,nav.dataset.nav))return;state.view=nav.dataset.nav;state.clientSelected='';state.routeSelected='';state.driverSelected='';state.globalQuery='';state.search='';state.filter='todos';state.sortKey='';state.page=1;state.menu=false;state.selected=null;render();if(state.view==='administracao'&&state.permissions.admin)loadAdminUsers();return;}
@@ -976,8 +997,8 @@ root.addEventListener('click',e=>{
  if(action==='menu'){state.menu=!state.menu;render();}
  if(action==='refresh'&&!PUBLIC_DEMO)loadData();
  if(action==='docs-csv'){
-  const name='COSTALOG_NFSE_'+state.from+'_'+state.to+'_'+(state.mode==='live'?'DSS':'DEMO')+'.csv';
-  downloadFile(docsCsv(state.docsRows,state),name,'text/csv;charset=utf-8');
+  const name=brandConfig(state.brand).name+'_NFSE_'+state.from+'_'+state.to+'_'+(state.mode==='live'?'DSS':'DEMO')+'.csv';
+  downloadFile(docsCsv(scopeDocuments(state.docsRows,state.dataset,state.recvRows,state.brand,state.recvCompany).rows,state),name,'text/csv;charset=utf-8');
  }
  if(action==='docs-sync-open'&&!state.docsLoading){state.docsSyncOpen=true;render();document.getElementById('docsSyncToken')?.focus();}
  if(action==='docs-sync-cancel'){state.docsSyncOpen=false;render();}
@@ -987,14 +1008,14 @@ root.addEventListener('click',e=>{
   if(state.recvSource!=='live'||state.recvLoading){alert('Sincronize Contas a Receber antes de exportar.');return;}
   try{
    const isPdf=action==='recv-report-pdf';
-   const report=receivablesReport(state.recvRows,state,{compact:isPdf});
+   const report=receivablesReport(scopeReceivables(state.recvRows,state.brand),state,{compact:isPdf});
    const reference=state.recvRef||'E';
    const company=state.recvCompany||'all';
    const suffix=[state.from,state.to,reference,company].map(x=>String(x).replace(/[^a-zA-Z0-9_-]/g,'_')).join('_');
    const meta={mode:'live',from:state.from,to:state.to};
-   if(action==='recv-report-xlsx')downloadXlsx(report,meta,'COSTALOG_Contas_a_Receber_'+suffix+'.xlsx');
+   if(action==='recv-report-xlsx')downloadXlsx(report,meta,brandConfig(state.brand).name+'_Contas_a_Receber_'+suffix+'.xlsx');
    if(action==='recv-report-csv')downloadFile(new TextEncoder().encode(receivablesCsv(report)),
-     'COSTALOG_Contas_a_Receber_'+suffix+'.csv','text/csv;charset=utf-8');
+     brandConfig(state.brand).name+'_Contas_a_Receber_'+suffix+'.csv','text/csv;charset=utf-8');
    if(isPdf)printReport(report,meta);
   }catch(error){alert('Não foi possível gerar o relatório: '+error.message);}
   return;
@@ -1099,7 +1120,7 @@ root.addEventListener('change',e=>{
   state.recvQuick='todos';state.recvSortKey=state.recvRef==='P'?'dataPagamento':'prioridade';state.recvSortDir=state.recvRef==='P'?'desc':'asc';
   state.recvStatus='';state.recvPage=1;render();return;
  }
- if(e.target.id==='recvCompany'){state.recvCompany=e.target.value;state.recvPage=1;state.reconPage=1;state.page=1;render();return;}
+ if(e.target.id==='recvCompany'){state.recvCompany=validSelectedCompany(state.brand,e.target.value);state.recvPage=1;state.reconPage=1;state.page=1;render();return;}
  if(e.target.id==='reconStatus'){state.reconStatus=e.target.value;state.reconPage=1;render();return;}
  if(e.target.id==='reconOrder'){state.reconOrder=e.target.value;state.reconPage=1;render();return;}
  if(e.target.id==='recvStatus'){state.recvStatus=e.target.value;state.recvPage=1;render();return;}

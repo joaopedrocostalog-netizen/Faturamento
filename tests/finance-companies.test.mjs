@@ -38,8 +38,9 @@ test('Filtro aplica-se aos totais e gráficos, sem misturar empresas e parceiros
  assert.equal(g.face,400);
  assert.equal(g.paidKnown,0);
  const companyHtml=renderCompanyFilter(data,ui);
- for(const label of COSTALOG_COMPANIES)assert(companyHtml.includes(label));
- assert(companyHtml.includes('Outras / não identificadas'));
+ for(const label of COSTALOG_COMPANIES.filter(x=>x!=='IDEALLOG'))assert(companyHtml.includes(label));
+ assert(!companyHtml.includes('IDEALLOG'));
+ assert(!companyHtml.includes('Outras / não identificadas'));
  const allHtml=renderReceivables(data,{...ui,recvCompany:'all'});
  assert(allHtml.includes('RESUMO FINANCEIRO POR EMPRESA'));
  assert(allHtml.includes('Saldo residual por empresa (DSS)'));
@@ -60,7 +61,7 @@ test('O servidor entrega o módulo novo no Render e o filtro usa somente o campo
  const server=readFileSync('api/server.mjs','utf8'),app=readFileSync('src/app.js','utf8');
  assert(server.includes("'companies.mjs'"));
  assert(app.includes("if(e.target.id==='recvCompany')"));
- assert(app.includes("renderCompanyFilter(state.recvRows,state,state.dataset)"));
+ assert(app.includes("renderCompanyFilter(receivableRows,state,brandOperational)"));
  const source=readFileSync('src/companies.mjs','utf8');
  assert(!source.includes('row?.parceiro'));
 });
@@ -99,7 +100,7 @@ test('Painel e gerência exibem faturas distintas, sem usar pedidos de frete',()
  const operations={pedidos:[{empresa:'CRC COSTA'},{empresa:'CRC COSTA'},{empresa:'IDEALLOG'}],viagens:[]};
  for(const view of ['painel','gerencial']){
   const page=renderCompanyFilter(data,{view,mode:'live',recvSource:'live'},operations);
-  assert(page.includes('<strong>6</strong><small>faturas</small>'));
+  assert(page.includes('<strong>3</strong><small>faturas</small>'));
   assert(page.includes('<strong>1</strong><small>fatura</small>'));
   assert(!page.includes('<strong>3</strong><small>pedidos</small>'));
   const noSync=renderCompanyFilter([],{view,mode:'live',recvSource:'pending'},operations);

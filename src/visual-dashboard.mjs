@@ -31,7 +31,7 @@ function panel(title,kicker,content,extra=''){
  return '<section class="v-panel '+extra+'"><div class="v-panel-head"><div><h3>'+H(title)+'</h3>'+(kicker?'<small>'+H(kicker)+'</small>':'')+'</div></div>'+content+'</section>';
 }
 function empty(text){return '<div class="v-chart-empty"><span>◇</span>'+H(text)+'</div>';}
-export function renderHero(view,d,{from,to,mode,financeiro}){
+export function renderHero(view,d,{from,to,mode,financeiro,brand='costalog'}){
  const titles={
   painel:['PAINEL','Indicadores de faturamento, pedidos e clientes'],
   graficos:['VISÃO GRÁFICA','Indicadores, tendências e distribuição dos registros DSS'],
@@ -46,8 +46,9 @@ export function renderHero(view,d,{from,to,mode,financeiro}){
   clientes:['CLIENTES & FRETES','Valores e distribuição por cliente'],
   analises:['ANÁLISES FINANCEIRAS','Tendências mensais e valores de pedidos']
  };
- const t=titles[view]||[String(view||'painel').toUpperCase(),'Acompanhamento financeiro COSTALOG'];
- return '<section class="v-hero"><div class="v-hero-mark">▦</div><div class="v-hero-copy"><div class="v-eyebrow">COSTALOG <span> / GESTÃO DE FATURAMENTO</span></div><h1>'+H(t[0])+' <span class="v-hero-badge">'+(mode==='live'?'DSS':'DEMONSTRAÇÃO')+'</span></h1><p>'+H(t[1])+'</p></div><div class="v-hero-side"><span>PERÍODO SELECIONADO</span><strong>'+H(PT(from))+' — '+H(PT(to))+'</strong><small>'+N(d.pedidos.length)+' pedidos de frete</small></div></section>';
+ const label=brand==='ideallog'?'IDEALLOG':'COSTALOG';
+ const t=titles[view]||[String(view||'painel').toUpperCase(),'Acompanhamento financeiro '+label];
+ return '<section class="v-hero"><div class="v-hero-mark">▦</div><div class="v-hero-copy"><div class="v-eyebrow">'+H(label)+' <span> / GESTÃO DE FATURAMENTO</span></div><h1>'+H(t[0])+' <span class="v-hero-badge">'+(mode==='live'?'DSS':'DEMONSTRAÇÃO')+'</span></h1><p>'+H(t[1])+'</p></div><div class="v-hero-side"><span>PERÍODO SELECIONADO</span><strong>'+H(PT(from))+' — '+H(PT(to))+'</strong><small>'+N(d.pedidos.length)+' pedidos de frete</small></div></section>';
 }
 export function renderSummary(d,settings){
  const viagens=d.viagens||[],pedidos=d.pedidos||[];

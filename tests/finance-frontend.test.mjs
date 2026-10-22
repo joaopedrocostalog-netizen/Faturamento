@@ -31,7 +31,7 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
   assert.equal(options.headers.Authorization,'Bearer autorizacao-temporaria-teste-2026');
   assert(url.startsWith('https://faturamento-sq74.onrender.com/api/'));
   if(url.includes('/api/documentos-eletronicos?'))
-   return {status:200,ok:true,json:async()=>({registros:[{id:'1',numeroNfse:'NFS-2026-900',parceiro:'PARCEIRO TESTE',dataEmissao:'2026-10-19',valorFinal:42,totalIss:2}]})};
+   return {status:200,ok:true,json:async()=>({registros:[{id:'1',numeroNfse:'NFS-2026-900',fatura:'REF-E',parceiro:'PARCEIRO TESTE',dataEmissao:'2026-10-19',valorFinal:42,totalIss:2}]})};
   if(url.includes('/api/receivables?')){
    const ref=new URL(url).searchParams.get('tipo_ref');
    refQueries.push(ref);
@@ -57,6 +57,17 @@ test('Painel sincroniza todas as abas do Faturamento com DSS mediante token temp
  assert.equal(syncToken.value,'','Token não deve ficar no input');
  assert(root.innerHTML.includes('DSS SINCRONIZADO'));
  assert(!root.innerHTML.includes('autorizacao-temporaria-teste-2026'));
+ nav('documentos');assert(root.innerHTML.includes('PARCEIRO TESTE'));
+ const switchBrand=()=>events.click({target:{closest:q=>q==='[data-brand-switch]'?{dataset:{}}:null}});
+ switchBrand();
+ assert(root.innerHTML.includes('src="./Ideallog.png"'));
+ assert(root.innerHTML.includes('Ir para COSTALOG'));
+ assert(!root.innerHTML.includes('PARCEIRO TESTE'),'Notas da CRC não podem ser mostradas na IDEALLOG');
+ nav('receber');assert(!root.innerHTML.includes('REF-E'),'Parcelas CRC não podem aparecer na IDEALLOG');
+ switchBrand();
+ assert(root.innerHTML.includes('src="./logo-costalog-sem-fundo-1024x876.png"'));
+ assert(root.innerHTML.includes('Ir para IDEALLOG'));
+ assert(root.innerHTML.includes('REF-E'),'Após voltar, a sincronização deve continuar válida');
  nav('documentos');assert(root.innerHTML.includes('PARCEIRO TESTE'));
  nav('faturamento');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
  nav('ctes');assert(root.innerHTML.includes('DSS SINCRONIZADO'));
