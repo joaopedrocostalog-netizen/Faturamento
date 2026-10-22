@@ -163,5 +163,5 @@ test('Comparação de três empresas mantém COMEX separada sem apagar dados',()
  assert(!html.includes('Comparar empresas incluídas no relatório'));
  assert(!html.includes('Hipótese a conferir'));
  assert(!html.includes('IDEALLOG</span>'));
- assert(!html.includes('4 faturas'));
+ assert(!html.includes('IDEALLOG +'));
 });
