@@ -666,10 +666,11 @@ body{background:#08090b;color:#f6f7f8}
 .v-brand-switch:hover{background:#4c2834;border-color:#fa4c65;box-shadow:0 0 0 2px rgba(232,59,82,.1)}
 .v-brand-switch:focus-visible{outline:2px solid #fa4c65;outline-offset:3px}
 .v-brand-switch span{font-size:16px;color:#ff7486}
-.v-brand-ideallog .v-brand-logo{max-height:44px;max-width:108px;object-fit:contain}
+.v-brand-ideallog .v-brand-logo{width:45px;height:48px;max-height:48px;max-width:108px;object-fit:contain;flex-shrink:0}
 .v-brand-ideallog .v-topbrand>div b{letter-spacing:.09em}
 .v-brand-ideallog .recv-enterprise-eyebrow{color:#d0a35c}
 .v-brand-ideallog .recv-company-tile.active{border-color:#d99c56}
 .v-brand-ideallog .recv-company-tile.active::before{background:#d99c56}
 .v-brand-ideallog .recv-company-tile.active::after{background:#bc8040}
 @media(max-width:760px){.v-topbar{flex-wrap:wrap}.v-brand-switch{font-size:10px;min-height:32px;padding:7px 10px}}
+@media(max-width:470px){.v-brand-ideallog .v-brand-logo{width:36px;height:40px}}
