@@ -103,6 +103,8 @@ test('Assets e backend tornam Ideallog.png disponível em Render e GitHub Pages'
  const backend=readFileSync('api/server.mjs','utf8');
  assert(backend.includes("['/Ideallog.png','Ideallog.png']"));
  assert(backend.includes("'brands.mjs'"));
+ const dockerfile=readFileSync('Dockerfile','utf8');
+ assert.match(dockerfile,/COPY[^\n]*\bIdeallog\.png\s+\.\//,'Render deve copiar a logo da IDEALLOG para a pasta do site');
  const workflow=readFileSync('.github/workflows/pages.yml','utf8');
  assert(workflow.includes('Ideallog.png public_site/'));
  assert(workflow.includes('src/brands.mjs'));
