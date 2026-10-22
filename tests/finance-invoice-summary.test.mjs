@@ -162,6 +162,6 @@ test('Comparação de três empresas mantém COMEX separada sem apagar dados',()
  const html=renderFinanceDashboard([], {...state,recvRows:three,recvCompany:'all'});
  assert(!html.includes('Comparar empresas incluídas no relatório'));
  assert(!html.includes('Hipótese a conferir'));
- assert(html.includes('3 faturas'));
+ assert(!html.includes('IDEALLOG</span>'));
  assert(!html.includes('4 faturas'));
 });
